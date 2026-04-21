@@ -530,7 +530,10 @@ export class RequestWorkflowService {
     };
   }
 
-  async approveSubmissionItem(itemId: string, input: ReviewSubmissionItemInput) {
+  async approveSubmissionItem(
+    itemId: string,
+    input: ReviewSubmissionItemInput,
+  ) {
     return this.reviewSubmissionItem(itemId, 'approved', input);
   }
 
@@ -844,7 +847,10 @@ export class RequestWorkflowService {
     };
   }
 
-  private async getSubmissionItemContext(itemId: string, organizationId: string) {
+  private async getSubmissionItemContext(
+    itemId: string,
+    organizationId: string,
+  ) {
     const db = this.getDatabase();
 
     const [submissionItem] = await db
@@ -960,10 +966,11 @@ export class RequestWorkflowService {
     currentStatus: SubmissionItemStatus,
     decision: ReviewDecisionType,
   ) {
-    const allowedStatuses: Record<ReviewDecisionType, SubmissionItemStatus[]> = {
-      approved: ['provided', 'rejected', 'changes_requested', 'approved'],
-      rejected: ['provided', 'approved', 'changes_requested', 'rejected'],
-    };
+    const allowedStatuses: Record<ReviewDecisionType, SubmissionItemStatus[]> =
+      {
+        approved: ['provided', 'rejected', 'changes_requested', 'approved'],
+        rejected: ['provided', 'approved', 'changes_requested', 'rejected'],
+      };
 
     if (!allowedStatuses[decision].includes(currentStatus)) {
       throw new ConflictException(

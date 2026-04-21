@@ -830,7 +830,10 @@ export const comments = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index('comments_item_created_idx').on(table.submissionItemId, table.createdAt),
+    index('comments_item_created_idx').on(
+      table.submissionItemId,
+      table.createdAt,
+    ),
   ],
 );
 

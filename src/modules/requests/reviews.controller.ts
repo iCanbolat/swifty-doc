@@ -83,16 +83,14 @@ export class ReviewsController {
     @Param('itemId') itemId: string,
     @Body() body: CreateSubmissionItemCommentDto,
   ) {
-    const result = await this.requestWorkflowService.createSubmissionItemComment(
-      itemId,
-      {
+    const result =
+      await this.requestWorkflowService.createSubmissionItemComment(itemId, {
         organizationId: body.organizationId,
         body: body.body,
         authorType: body.authorType ?? 'reviewer',
         authorId: body.authorId,
         metadata: body.metadata,
-      },
-    );
+      });
 
     return {
       data: result,

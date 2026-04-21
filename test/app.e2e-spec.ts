@@ -125,9 +125,8 @@ describe('AppController (e2e)', () => {
           body.components.schemas.AutosaveSubmissionResponseDataDto.properties
             .status.enum ?? body.components.schemas.SubmissionStatus?.enum;
         const reviewDecisionEnum =
-          body.components.schemas.ReviewSubmissionItemResponseDataDto
-            .properties.decision.enum ??
-          body.components.schemas.ReviewDecisionType?.enum;
+          body.components.schemas.ReviewSubmissionItemResponseDataDto.properties
+            .decision.enum ?? body.components.schemas.ReviewDecisionType?.enum;
         const commentAuthorTypeEnum =
           body.components.schemas.CreateSubmissionItemCommentDto.properties
             .authorType.enum ?? body.components.schemas.CommentAuthorType?.enum;
