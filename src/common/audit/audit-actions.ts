@@ -4,6 +4,13 @@ export const AUDIT_ACTIONS = {
   security: {},
   data_access: {
     fileUploaded: 'data_access.file_uploaded',
+    portalLinkCreated: 'data_access.portal_link_created',
+    portalLinkVerified: 'data_access.portal_link_verified',
+    requestClosed: 'data_access.request_closed',
+    requestCreated: 'data_access.request_created',
+    requestReopened: 'data_access.request_reopened',
+    requestSent: 'data_access.request_sent',
+    submissionAutosaved: 'data_access.submission_autosaved',
   },
   webhook: {
     endpointRegistered: 'webhook.endpoint_registered',

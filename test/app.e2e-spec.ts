@@ -62,12 +62,32 @@ describe('AppController (e2e)', () => {
       .expect(400);
   });
 
+  it('/v1/requests/:id/send (POST) rejects invalid dto payload', () => {
+    return request(app.getHttpServer())
+      .post('/v1/requests/req_123/send')
+      .send({})
+      .expect(400);
+  });
+
+  it('/v1/portal/access (POST) rejects missing token payload', () => {
+    return request(app.getHttpServer())
+      .post('/v1/portal/access')
+      .send({
+        requestId: 'req_123',
+      })
+      .expect(400);
+  });
+
   it('/docs-json (GET) exposes typed webhook enums in the OpenAPI document', () => {
     return request(app.getHttpServer())
       .get('/docs-json')
       .expect(200)
       .expect(({ body }) => {
         expect(body.paths['/v1/webhooks/events']).toBeDefined();
+        expect(body.paths['/v1/requests/{id}/send']).toBeDefined();
+        expect(body.paths['/v1/requests/{id}/portal-links']).toBeDefined();
+        expect(body.paths['/v1/submissions/{id}/answers']).toBeDefined();
+        expect(body.paths['/v1/portal/access']).toBeDefined();
 
         const eventTypeEnum =
           body.components.schemas.EmitWebhookEventDto.properties.eventType
@@ -76,9 +96,21 @@ describe('AppController (e2e)', () => {
           body.components.schemas.RegisterWebhookEndpointDto.properties
             .subscribedEvents.items?.enum ??
           body.components.schemas.WebhookSubscriptionType?.enum;
+        const requestStatusEnum =
+          body.components.schemas.CreateRequestResponseDataDto.properties.status
+            .enum ?? body.components.schemas.RequestStatus?.enum;
+        const portalPurposeEnum =
+          body.components.schemas.CreatePortalLinkDto.properties.purpose.enum ??
+          body.components.schemas.PortalLinkPurpose?.enum;
+        const submissionStatusEnum =
+          body.components.schemas.AutosaveSubmissionResponseDataDto.properties
+            .status.enum ?? body.components.schemas.SubmissionStatus?.enum;
 
         expect(eventTypeEnum).toContain('file.uploaded');
         expect(subscribedEventsEnum).toContain('*');
+        expect(requestStatusEnum).toContain('closed');
+        expect(portalPurposeEnum).toContain('request_access');
+        expect(submissionStatusEnum).toContain('completed');
       });
   });
 

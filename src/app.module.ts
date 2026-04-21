@@ -11,6 +11,7 @@ import { QueueModule } from './infrastructure/queue/queue.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { WebhooksModule } from './infrastructure/webhooks/webhooks.module';
 import { FilesModule } from './modules/files/files.module';
+import { RequestsModule } from './modules/requests/requests.module';
 import type { RuntimeEnv } from './common/config/runtime-env';
 import { ConfigService } from '@nestjs/config';
 
@@ -36,6 +37,7 @@ import { ConfigService } from '@nestjs/config';
     StorageModule,
     WebhooksModule,
     FilesModule,
+    RequestsModule,
   ],
   controllers: [AppController],
   providers: [
