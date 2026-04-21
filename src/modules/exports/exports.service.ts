@@ -113,13 +113,14 @@ export class ExportsService implements OnModuleInit {
       throw error;
     }
 
-    const queueJobId = await this.jobQueueService.enqueue<ExportGenerationJobPayload>(
-      'exports.generate',
-      {
-        exportJobId,
-        organizationId: input.organizationId,
-      },
-    );
+    const queueJobId =
+      await this.jobQueueService.enqueue<ExportGenerationJobPayload>(
+        'exports.generate',
+        {
+          exportJobId,
+          organizationId: input.organizationId,
+        },
+      );
 
     await this.auditLogService.record({
       category: 'data_access',
@@ -256,7 +257,9 @@ export class ExportsService implements OnModuleInit {
     } catch (error) {
       const completedAt = new Date();
       const errorMessage =
-        error instanceof Error ? error.message : 'Unknown export generation error';
+        error instanceof Error
+          ? error.message
+          : 'Unknown export generation error';
 
       await db
         .update(exportJobs)
@@ -341,7 +344,9 @@ export class ExportsService implements OnModuleInit {
       const usedNames = new Set<string>();
 
       for (const fileRow of fileRows) {
-        const fileObject = await this.storageService.getObject(fileRow.storageKey);
+        const fileObject = await this.storageService.getObject(
+          fileRow.storageKey,
+        );
 
         if (!fileObject) {
           continue;
@@ -566,7 +571,8 @@ export class ExportsService implements OnModuleInit {
   }
 
   private escapeCsvCell(value: unknown): string {
-    const normalized = value === null || value === undefined ? '' : String(value);
+    const normalized =
+      value === null || value === undefined ? '' : String(value);
 
     if (
       normalized.includes(',') ||

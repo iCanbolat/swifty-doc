@@ -44,7 +44,8 @@ export class ExportJobResponseDataDto {
   artifactSizeBytes!: number | null;
 
   @ApiPropertyOptional({
-    example: 'https://pullzone.example.com/org_123/exports/2026-04-22/export_job_123.zip',
+    example:
+      'https://pullzone.example.com/org_123/exports/2026-04-22/export_job_123.zip',
     nullable: true,
   })
   publicUrl!: string | null;

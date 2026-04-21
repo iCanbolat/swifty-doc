@@ -886,7 +886,10 @@ export const exportJobs = pgTable(
     completedAt: timestamp('completed_at', { withTimezone: true }),
   },
   (table) => [
-    index('export_jobs_org_created_idx').on(table.organizationId, table.createdAt),
+    index('export_jobs_org_created_idx').on(
+      table.organizationId,
+      table.createdAt,
+    ),
     index('export_jobs_request_status_idx').on(table.requestId, table.status),
   ],
 );

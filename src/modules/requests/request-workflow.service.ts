@@ -1059,7 +1059,10 @@ export class RequestWorkflowService {
     }
 
     if (Object.keys(updateValues).length > 0) {
-      await db.update(requests).set(updateValues).where(eq(requests.id, requestId));
+      await db
+        .update(requests)
+        .set(updateValues)
+        .where(eq(requests.id, requestId));
     }
 
     if (shouldEmitCompleted) {
