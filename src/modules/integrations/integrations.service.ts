@@ -59,6 +59,7 @@ import type {
   ExecuteIntegrationSyncInput,
   ExecutedIntegrationSyncResult,
   IntegrationConnectionRecord,
+  IntegrationDebugSnapshot,
   IntegrationProviderListItem,
   IntegrationSyncQueuePayload,
   ListSyncJobsInput,
@@ -338,6 +339,44 @@ export class IntegrationsService implements OnModuleInit {
       .where(and(...conditions))
       .orderBy(desc(syncJobs.queuedAt))
       .limit(50);
+  }
+
+  async getConnectionDebugSnapshot(
+    connectionId: string,
+    organizationId: string,
+  ): Promise<IntegrationDebugSnapshot> {
+    const connection = await this.getConnection(connectionId, organizationId);
+    const provider = this.getProviderCatalogEntry(connection.providerKey);
+    const db = this.getDatabase();
+    const recentSyncJobs = await db
+      .select()
+      .from(syncJobs)
+      .where(
+        and(
+          eq(syncJobs.organizationId, organizationId),
+          eq(syncJobs.connectionId, connectionId),
+        ),
+      )
+      .orderBy(desc(syncJobs.queuedAt))
+      .limit(10);
+    const externalReferences = await db
+      .select()
+      .from(integrationExternalReferences)
+      .where(
+        and(
+          eq(integrationExternalReferences.organizationId, organizationId),
+          eq(integrationExternalReferences.connectionId, connectionId),
+        ),
+      )
+      .orderBy(desc(integrationExternalReferences.updatedAt))
+      .limit(20);
+
+    return {
+      connection,
+      provider,
+      recentSyncJobs,
+      externalReferences,
+    };
   }
 
   async executeSyncNow(

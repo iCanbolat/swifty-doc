@@ -1,14 +1,22 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
 import { EmitWebhookEventDto } from './dto/emit-webhook-event.dto';
 import { EmitWebhookEventResponseDto } from './dto/emit-webhook-event-response.dto';
+import { GetWebhookEndpointsQueryDto } from './dto/get-webhook-endpoints-query.dto';
+import { ListWebhookDeliveriesQueryDto } from './dto/list-webhook-deliveries-query.dto';
+import { ReplayWebhookDeliveryDto } from './dto/replay-webhook-delivery.dto';
 import { RegisterWebhookEndpointDto } from './dto/register-webhook-endpoint.dto';
+import {
+  WebhookDeliveryListResponseDto,
+  WebhookDeliveryResponseDto,
+} from './dto/webhook-delivery-response.dto';
 import {
   WebhookEndpointListResponseDto,
   WebhookEndpointResponseDto,
@@ -22,13 +30,17 @@ export class WebhooksController {
 
   @ApiOperation({ summary: 'List registered webhook endpoints.' })
   @ApiOkResponse({ type: WebhookEndpointListResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
   @Get('endpoints')
-  listEndpoints() {
+  async listEndpoints(@Query() query: GetWebhookEndpointsQueryDto) {
+    const endpoints = await this.webhookService.listEndpoints(
+      query.organizationId,
+    );
+
     return {
-      data: this.webhookService.listEndpoints().map((endpoint) => ({
-        ...endpoint,
-        secret: '[redacted]',
-      })),
+      data: endpoints.map((endpoint) =>
+        this.webhookService.sanitizeEndpoint(endpoint),
+      ),
     };
   }
 
@@ -38,18 +50,16 @@ export class WebhooksController {
   @ApiCreatedResponse({ type: WebhookEndpointResponseDto })
   @ApiBadRequestResponse({ description: 'DTO validation failed.' })
   @Post('endpoints')
-  registerEndpoint(@Body() body: RegisterWebhookEndpointDto) {
-    const endpoint = this.webhookService.registerEndpoint({
+  async registerEndpoint(@Body() body: RegisterWebhookEndpointDto) {
+    const endpoint = await this.webhookService.registerEndpoint({
+      organizationId: body.organizationId,
       url: body.url,
       secret: body.secret,
       subscribedEvents: body.subscribedEvents ?? [],
     });
 
     return {
-      data: {
-        ...endpoint,
-        secret: '[redacted]',
-      },
+      data: this.webhookService.sanitizeEndpoint(endpoint),
     };
   }
 
@@ -68,6 +78,53 @@ export class WebhooksController {
 
     return {
       data: result,
+    };
+  }
+}
+
+@ApiTags('Webhooks')
+@Controller('v1/webhook-deliveries')
+export class WebhookDeliveriesController {
+  constructor(private readonly webhookService: WebhookService) {}
+
+  @ApiOperation({
+    summary: 'List recent webhook delivery attempts for an organization.',
+  })
+  @ApiOkResponse({ type: WebhookDeliveryListResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
+  @Get()
+  async listDeliveries(@Query() query: ListWebhookDeliveriesQueryDto) {
+    const deliveries = await this.webhookService.listDeliveries({
+      organizationId: query.organizationId,
+      endpointId: query.endpointId,
+      status: query.status,
+    });
+
+    return {
+      data: deliveries.map((delivery) =>
+        this.webhookService.serializeDelivery(delivery),
+      ),
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Replay a failed or historical webhook delivery attempt.',
+  })
+  @ApiCreatedResponse({ type: WebhookDeliveryResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
+  @ApiNotFoundResponse({ description: 'Webhook delivery not found.' })
+  @Post(':id/replay')
+  async replayDelivery(
+    @Param('id') deliveryId: string,
+    @Body() body: ReplayWebhookDeliveryDto,
+  ) {
+    const delivery = await this.webhookService.replayDelivery(deliveryId, {
+      organizationId: body.organizationId,
+      actorUserId: body.actorUserId,
+    });
+
+    return {
+      data: this.webhookService.serializeDelivery(delivery),
     };
   }
 }

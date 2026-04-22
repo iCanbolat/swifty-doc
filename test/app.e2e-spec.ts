@@ -62,6 +62,45 @@ describe('AppController (e2e)', () => {
       .expect(400);
   });
 
+  it('/v1/webhook-deliveries (GET) rejects missing query payload', () => {
+    return request(app.getHttpServer())
+      .get('/v1/webhook-deliveries')
+      .expect(400);
+  });
+
+  it('/v1/webhook-deliveries/:id/replay (POST) rejects invalid dto payload', () => {
+    return request(app.getHttpServer())
+      .post('/v1/webhook-deliveries/webhook_delivery_123/replay')
+      .send({})
+      .expect(400);
+  });
+
+  it('/v1/applications (POST) rejects invalid dto payload', () => {
+    return request(app.getHttpServer())
+      .post('/v1/applications')
+      .send({
+        organizationId: 'org_123',
+      })
+      .expect(400);
+  });
+
+  it('/v1/applications (GET) rejects missing query payload', () => {
+    return request(app.getHttpServer()).get('/v1/applications').expect(400);
+  });
+
+  it('/v1/applications/:id (GET) rejects missing query payload', () => {
+    return request(app.getHttpServer())
+      .get('/v1/applications/oauth_app_123')
+      .expect(400);
+  });
+
+  it('/v1/applications/:id/rotate-secret (POST) rejects invalid dto payload', () => {
+    return request(app.getHttpServer())
+      .post('/v1/applications/oauth_app_123/rotate-secret')
+      .send({})
+      .expect(400);
+  });
+
   it('/v1/requests/:id/send (POST) rejects invalid dto payload', () => {
     return request(app.getHttpServer())
       .post('/v1/requests/req_123/send')
@@ -168,6 +207,12 @@ describe('AppController (e2e)', () => {
       .expect(400);
   });
 
+  it('/v1/integrations/connections/:id/debug (GET) rejects missing query payload', () => {
+    return request(app.getHttpServer())
+      .get('/v1/integrations/connections/connection_123/debug')
+      .expect(400);
+  });
+
   it('/v1/integrations/connections/:id/sync (POST) rejects invalid dto payload', () => {
     return request(app.getHttpServer())
       .post('/v1/integrations/connections/connection_123/sync')
@@ -185,6 +230,11 @@ describe('AppController (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body.paths['/v1/webhooks/events']).toBeDefined();
+        expect(body.paths['/v1/webhook-deliveries']).toBeDefined();
+        expect(body.paths['/v1/webhook-deliveries/{id}/replay']).toBeDefined();
+        expect(body.paths['/v1/applications']).toBeDefined();
+        expect(body.paths['/v1/applications/{id}']).toBeDefined();
+        expect(body.paths['/v1/applications/{id}/rotate-secret']).toBeDefined();
         expect(body.paths['/v1/requests/{id}/send']).toBeDefined();
         expect(body.paths['/v1/requests/{id}/remind']).toBeDefined();
         expect(body.paths['/v1/requests/{id}/portal-links']).toBeDefined();
@@ -207,6 +257,9 @@ describe('AppController (e2e)', () => {
         expect(body.paths['/v1/integrations/connections']).toBeDefined();
         expect(body.paths['/v1/integrations/connections/{id}']).toBeDefined();
         expect(
+          body.paths['/v1/integrations/connections/{id}/debug'],
+        ).toBeDefined();
+        expect(
           body.paths['/v1/integrations/connections/{id}/test'],
         ).toBeDefined();
         expect(
@@ -221,6 +274,13 @@ describe('AppController (e2e)', () => {
           body.components.schemas.RegisterWebhookEndpointDto.properties
             .subscribedEvents.items?.enum ??
           body.components.schemas.WebhookSubscriptionType?.enum;
+        const oauthApplicationTypeEnum =
+          body.components.schemas.OAuthApplicationDataDto.properties
+            .applicationType.enum ??
+          body.components.schemas.OAuthApplicationType?.enum;
+        const oauthApplicationStatusEnum =
+          body.components.schemas.OAuthApplicationDataDto.properties.status
+            .enum ?? body.components.schemas.OAuthApplicationStatus?.enum;
         const requestStatusEnum =
           body.components.schemas.CreateRequestResponseDataDto.properties.status
             .enum ?? body.components.schemas.RequestStatus?.enum;
@@ -276,6 +336,9 @@ describe('AppController (e2e)', () => {
         const exportJobResponseDeliveryTargets =
           body.components.schemas.ExportJobResponseDataDto.properties
             .deliveryTargets;
+        const webhookDeliveryStatusEnum =
+          body.components.schemas.WebhookDeliveryViewDto.properties.status
+            .enum ?? body.components.schemas.WebhookDeliveryStatus?.enum;
 
         expect(eventTypeEnum).toContain('file.uploaded');
         expect(eventTypeEnum).toContain('request.viewed');
@@ -283,6 +346,8 @@ describe('AppController (e2e)', () => {
         expect(eventTypeEnum).toContain('request.overdue');
         expect(eventTypeEnum).toContain('request.reminder_sent');
         expect(subscribedEventsEnum).toContain('*');
+        expect(oauthApplicationTypeEnum).toContain('confidential');
+        expect(oauthApplicationStatusEnum).toContain('revoked');
         expect(requestStatusEnum).toContain('closed');
         expect(portalPurposeEnum).toContain('request_access');
         expect(submissionStatusEnum).toContain('completed');
@@ -310,6 +375,7 @@ describe('AppController (e2e)', () => {
         expect(exportJobMetadataExample.deliveryTargets).toBeUndefined();
         expect(replayExportDeliveryFailedOnlyDefault).toBe(true);
         expect(exportJobResponseDeliveryTargets.type).toBe('array');
+        expect(webhookDeliveryStatusEnum).toContain('failed');
       });
   });
 

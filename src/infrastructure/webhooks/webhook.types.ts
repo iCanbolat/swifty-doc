@@ -2,14 +2,17 @@ import type {
   WebhookEventType,
   WebhookSubscriptionType,
 } from '../../common/webhooks/webhook-events';
+import type { WebhookDeliveryStatus } from '../../common/webhooks/webhook-delivery-types';
 
-export interface WebhookEndpoint {
+export interface WebhookEndpointRecord {
   id: string;
+  organizationId: string;
   url: string;
   secret: string;
   subscribedEvents: WebhookSubscriptionType[];
   enabled: boolean;
-  createdAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface WebhookEventEnvelope {
@@ -20,7 +23,25 @@ export interface WebhookEventEnvelope {
   data: Record<string, unknown>;
 }
 
+export interface WebhookDeliveryRecord {
+  id: string;
+  organizationId: string;
+  endpointId: string;
+  endpointUrl: string;
+  eventId: string;
+  eventType: string;
+  requestBody: Record<string, unknown>;
+  status: WebhookDeliveryStatus;
+  attemptCount: number;
+  responseCode: number | null;
+  lastErrorMessage: string | null;
+  sourceDeliveryId: string | null;
+  lastAttemptedAt: Date | null;
+  deliveredAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface WebhookDeliveryJobPayload {
-  endpoint: WebhookEndpoint;
-  event: WebhookEventEnvelope;
+  deliveryId: string;
 }

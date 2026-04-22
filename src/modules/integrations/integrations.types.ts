@@ -112,4 +112,11 @@ export interface ExecutedIntegrationSyncResult {
   result: IntegrationSyncResult;
 }
 
+export interface IntegrationDebugSnapshot {
+  connection: IntegrationConnectionRecord;
+  provider: IntegrationProviderCatalogEntry;
+  recentSyncJobs: SyncJobRecord[];
+  externalReferences: IntegrationExternalReferenceRecord[];
+}
+
 export interface IntegrationProviderListItem extends IntegrationProviderCatalogEntry {}

@@ -71,6 +71,13 @@
       "when": 1776877250663,
       "tag": "0009_groovy_cammi",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776886781336,
+      "tag": "0010_funny_doorman",
+      "breakpoints": true
     }
   ]
 }

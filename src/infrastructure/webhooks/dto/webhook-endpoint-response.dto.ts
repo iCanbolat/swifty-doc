@@ -8,6 +8,9 @@ export class WebhookEndpointViewDto {
   @ApiProperty({ example: 'c0f59570-b40a-47ba-b0a0-3ebd0cd54b70' })
   id!: string;
 
+  @ApiProperty({ example: 'org_123' })
+  organizationId!: string;
+
   @ApiProperty({ example: 'https://partner.example.com/hooks/swiftydoc' })
   url!: string;
 

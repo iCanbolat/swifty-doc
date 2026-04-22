@@ -9,8 +9,10 @@ import {
 } from '@nestjs/swagger';
 import { CreateIntegrationConnectionDto } from './dto/create-integration-connection.dto';
 import { CreateIntegrationConnectionResponseDto } from './dto/create-integration-connection-response.dto';
+import { GetIntegrationDebugQueryDto } from './dto/get-integration-debug-query.dto';
 import { GetIntegrationConnectionQueryDto } from './dto/get-integration-connection-query.dto';
 import { IntegrationConnectionResponseDto } from './dto/integration-connection-response.dto';
+import { IntegrationDebugResponseDto } from './dto/integration-debug-response.dto';
 import { ListIntegrationProvidersResponseDto } from './dto/list-integration-providers-response.dto';
 import { ListSyncJobsQueryDto } from './dto/list-sync-jobs-query.dto';
 import { ListSyncJobsResponseDto } from './dto/list-sync-jobs-response.dto';
@@ -74,6 +76,40 @@ export class IntegrationsController {
     };
   }
 
+  @ApiOperation({
+    summary:
+      'Get integration connection debug data, recent syncs, and external references.',
+  })
+  @ApiOkResponse({ type: IntegrationDebugResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
+  @ApiNotFoundResponse({ description: 'Integration connection not found.' })
+  @Get('connections/:id/debug')
+  async getConnectionDebug(
+    @Param('id') connectionId: string,
+    @Query() query: GetIntegrationDebugQueryDto,
+  ) {
+    const snapshot = await this.integrationsService.getConnectionDebugSnapshot(
+      connectionId,
+      query.organizationId,
+    );
+
+    return {
+      data: {
+        connection: this.integrationsService.sanitizeConnection(
+          snapshot.connection,
+        ),
+        provider: snapshot.provider,
+        recentSyncJobs: snapshot.recentSyncJobs,
+        externalReferences: snapshot.externalReferences.map((reference) => ({
+          ...reference,
+          createdAt: reference.createdAt.toISOString(),
+          lastSyncedAt: reference.lastSyncedAt.toISOString(),
+          updatedAt: reference.updatedAt.toISOString(),
+        })),
+      },
+    };
+  }
+
   @ApiOperation({ summary: 'Test a configured integration connection.' })
   @ApiOkResponse({ type: TestIntegrationConnectionResponseDto })
   @ApiBadRequestResponse({ description: 'DTO validation failed.' })
@@ -90,13 +126,17 @@ export class IntegrationsController {
 
     return {
       data: {
-        connection: this.integrationsService.sanitizeConnection(tested.connection),
+        connection: this.integrationsService.sanitizeConnection(
+          tested.connection,
+        ),
         result: tested.result,
       },
     };
   }
 
-  @ApiOperation({ summary: 'Queue a manual sync job for an integration connection.' })
+  @ApiOperation({
+    summary: 'Queue a manual sync job for an integration connection.',
+  })
   @ApiCreatedResponse({ type: TriggerSyncJobResponseDto })
   @ApiBadRequestResponse({ description: 'DTO validation failed.' })
   @ApiNotFoundResponse({ description: 'Integration connection not found.' })

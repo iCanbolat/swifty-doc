@@ -1,0 +1,95 @@
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  ArrayUnique,
+  IsArray,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
+import {
+  OAUTH_APPLICATION_STATUS_VALUES,
+  OAUTH_APPLICATION_TYPE_VALUES,
+  type OAuthApplicationStatus,
+  type OAuthApplicationType,
+} from '../applications.types';
+
+export class UpdateOAuthApplicationDto {
+  @ApiProperty({ example: 'org_123', maxLength: 120 })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  organizationId!: string;
+
+  @ApiPropertyOptional({ example: 'SwiftyDoc Partner App', maxLength: 160 })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(160)
+  name?: string;
+
+  @ApiPropertyOptional({
+    example: 'Internal onboarding automation client.',
+    maxLength: 2000,
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  description?: string;
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    example: ['https://partner.example.com/oauth/callback'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsUrl({ require_protocol: true, require_tld: false }, { each: true })
+  redirectUris?: string[];
+
+  @ApiPropertyOptional({
+    type: String,
+    isArray: true,
+    example: ['requests.read', 'requests.write', 'files.read'],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @MaxLength(120, { each: true })
+  allowedScopes?: string[];
+
+  @ApiPropertyOptional({
+    enum: OAUTH_APPLICATION_TYPE_VALUES,
+    enumName: 'OAuthApplicationType',
+    example: 'confidential',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @IsIn(OAUTH_APPLICATION_TYPE_VALUES)
+  applicationType?: OAuthApplicationType;
+
+  @ApiPropertyOptional({
+    enum: OAUTH_APPLICATION_STATUS_VALUES,
+    enumName: 'OAuthApplicationStatus',
+    example: 'paused',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @IsIn(OAUTH_APPLICATION_STATUS_VALUES)
+  status?: OAuthApplicationStatus;
+
+  @ApiPropertyOptional({ example: 'user_123', maxLength: 120 })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  actorUserId?: string;
+}

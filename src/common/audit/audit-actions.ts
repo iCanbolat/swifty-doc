@@ -16,6 +16,10 @@ export const AUDIT_ACTIONS = {
     integrationSyncCompleted: 'data_access.integration_sync_completed',
     integrationSyncFailed: 'data_access.integration_sync_failed',
     integrationSyncQueued: 'data_access.integration_sync_queued',
+    oauthApplicationCreated: 'data_access.oauth_application_created',
+    oauthApplicationSecretRotated:
+      'data_access.oauth_application_secret_rotated',
+    oauthApplicationUpdated: 'data_access.oauth_application_updated',
     portalLinkCreated: 'data_access.portal_link_created',
     portalLinkVerified: 'data_access.portal_link_verified',
     requestClosed: 'data_access.request_closed',
@@ -29,6 +33,8 @@ export const AUDIT_ACTIONS = {
     submissionAutosaved: 'data_access.submission_autosaved',
   },
   webhook: {
+    deliveryFailed: 'webhook.delivery_failed',
+    deliveryReplayed: 'webhook.delivery_replayed',
     endpointRegistered: 'webhook.endpoint_registered',
     eventEmitted: 'webhook.event_emitted',
     deliverySucceeded: 'webhook.delivery_succeeded',

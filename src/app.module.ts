@@ -15,6 +15,7 @@ import { CommunicationsModule } from './modules/communications/communications.mo
 import { ExportsModule } from './modules/exports/exports.module';
 import { FilesModule } from './modules/files/files.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { ApplicationsModule } from './modules/applications/applications.module';
 import { RequestsModule } from './modules/requests/requests.module';
 import type { RuntimeEnv } from './common/config/runtime-env';
 import { ConfigService } from '@nestjs/config';
@@ -41,6 +42,7 @@ import { ConfigService } from '@nestjs/config';
     RemindersModule,
     StorageModule,
     WebhooksModule,
+    ApplicationsModule,
     CommunicationsModule,
     ExportsModule,
     FilesModule,

@@ -29,6 +29,7 @@ import {
   REMINDER_CHANNEL_VALUES,
   REMINDER_PROVIDER_VALUES,
 } from '../../../common/reminders/reminder-types';
+import { WEBHOOK_DELIVERY_STATUS_VALUES } from '../../../common/webhooks/webhook-delivery-types';
 
 export const organizationStatusEnum = pgEnum('organization_status', [
   'active',
@@ -76,6 +77,11 @@ export const oauthGrantStatusEnum = pgEnum('oauth_grant_status', [
   'expired',
   'revoked',
 ]);
+
+export const webhookDeliveryStatusEnum = pgEnum(
+  'webhook_delivery_status',
+  WEBHOOK_DELIVERY_STATUS_VALUES,
+);
 
 export const auditCategoryEnum = pgEnum('audit_category', [
   'security',
@@ -420,6 +426,77 @@ export const oauthGrants = pgTable('oauth_grants', {
     .notNull()
     .defaultNow(),
 });
+
+export const webhookEndpoints = pgTable(
+  'webhook_endpoints',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    url: varchar('url', { length: 500 }).notNull(),
+    secret: text('secret').notNull(),
+    subscribedEvents: jsonb('subscribed_events')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    enabled: boolean('enabled').notNull().default(true),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('webhook_endpoints_org_enabled_idx').on(
+      table.organizationId,
+      table.enabled,
+    ),
+  ],
+);
+
+export const webhookDeliveries = pgTable(
+  'webhook_deliveries',
+  {
+    id: text('id').primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    endpointId: text('endpoint_id')
+      .notNull()
+      .references(() => webhookEndpoints.id, { onDelete: 'cascade' }),
+    eventId: varchar('event_id', { length: 120 }).notNull(),
+    eventType: varchar('event_type', { length: 120 }).notNull(),
+    requestBody: jsonb('request_body')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: webhookDeliveryStatusEnum('status').notNull().default('queued'),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    responseCode: integer('response_code'),
+    lastErrorMessage: text('last_error_message'),
+    sourceDeliveryId: text('source_delivery_id'),
+    lastAttemptedAt: timestamp('last_attempted_at', { withTimezone: true }),
+    deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index('webhook_deliveries_org_created_idx').on(
+      table.organizationId,
+      table.createdAt,
+    ),
+    index('webhook_deliveries_endpoint_status_idx').on(
+      table.endpointId,
+      table.status,
+    ),
+  ],
+);
 
 export const clients = pgTable(
   'clients',
@@ -1040,9 +1117,13 @@ export const integrationExternalReferences = pgTable(
       .notNull()
       .references(() => integrationConnections.id, { onDelete: 'cascade' }),
     providerKey: integrationProviderKeyEnum('provider_key').notNull(),
-    localResourceType: varchar('local_resource_type', { length: 120 }).notNull(),
+    localResourceType: varchar('local_resource_type', {
+      length: 120,
+    }).notNull(),
     localResourceId: text('local_resource_id').notNull(),
-    externalObjectType: varchar('external_object_type', { length: 120 }).notNull(),
+    externalObjectType: varchar('external_object_type', {
+      length: 120,
+    }).notNull(),
     externalId: text('external_id').notNull(),
     externalReferenceKey: varchar('external_reference_key', { length: 120 }),
     metadata: jsonb('metadata')
