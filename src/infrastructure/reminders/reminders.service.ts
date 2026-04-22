@@ -18,6 +18,11 @@ import {
 } from '../database/schema';
 import { PlivoSmsReminderProvider } from './plivo-sms-reminder.provider';
 import type {
+  UpsertBrandingSettingsInput,
+  UpsertEmailTemplateVariantInput,
+  UpsertReminderProviderConfigInput,
+} from './reminders.types';
+import type {
   ReminderBrandingSettings,
   ReminderDispatchInput,
   ReminderDispatchResult,
@@ -26,35 +31,6 @@ import type {
 } from './reminder-provider.types';
 import { ResendEmailReminderProvider } from './resend-email-reminder.provider';
 import { WhatsAppCloudReminderProvider } from './whatsapp-cloud-reminder.provider';
-
-export interface UpsertReminderProviderConfigInput {
-  organizationId: string;
-  channel: ReminderChannel;
-  provider: ReminderProvider;
-  enabled?: boolean;
-  config?: Record<string, unknown>;
-}
-
-export interface UpsertBrandingSettingsInput {
-  organizationId: string;
-  displayName: string;
-  logoUrl?: string;
-  primaryColor?: string;
-  secondaryColor?: string;
-  emailFromName?: string;
-  emailReplyTo?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface UpsertEmailTemplateVariantInput {
-  organizationId: string;
-  templateKey: string;
-  locale?: string;
-  resendTemplateId?: string;
-  subjectTemplate: string;
-  bodyTemplate: string;
-  metadata?: Record<string, unknown>;
-}
 
 @Injectable()
 export class RemindersService {

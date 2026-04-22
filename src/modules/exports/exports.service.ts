@@ -26,41 +26,12 @@ import {
 } from '../../infrastructure/database/schema';
 import { JobQueueService } from '../../infrastructure/queue/job-queue.service';
 import { StorageService } from '../../infrastructure/storage/storage.service';
-
-interface CreateExportJobInput {
-  organizationId: string;
-  exportType: ExportJobType;
-  requestId?: string;
-  submissionId?: string;
-  requestedByUserId?: string;
-  includeFiles?: boolean;
-  metadata?: Record<string, unknown>;
-}
-
-interface ExportGenerationJobPayload {
-  exportJobId: string;
-  organizationId: string;
-}
-
-interface GeneratedArtifact {
-  buffer: Buffer;
-  extension: 'zip' | 'pdf' | 'csv';
-  mimeType: 'application/zip' | 'application/pdf' | 'text/csv';
-}
-
-interface FileAssetExportRow {
-  fileId: string;
-  requestId: string | null;
-  submissionId: string | null;
-  submissionItemId: string | null;
-  originalFileName: string;
-  normalizedFileName: string;
-  detectedMimeType: string;
-  sizeBytes: number;
-  checksumSha256: string;
-  storageKey: string;
-  createdAt: Date;
-}
+import type {
+  CreateExportJobInput,
+  ExportGenerationJobPayload,
+  FileAssetExportRow,
+  GeneratedArtifact,
+} from './exports.types';
 
 @Injectable()
 export class ExportsService implements OnModuleInit {

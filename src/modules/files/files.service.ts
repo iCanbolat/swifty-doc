@@ -20,52 +20,12 @@ import { fileAssets } from '../../infrastructure/database/schema';
 import type { RetrievedFile } from '../../infrastructure/storage/storage.types';
 import { StorageService } from '../../infrastructure/storage/storage.service';
 import { WebhookService } from '../../infrastructure/webhooks/webhook.service';
-
-const DEFAULT_ALLOWED_MIME_TYPES = [
-  'application/pdf',
-  'application/zip',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'text/csv',
-  'text/plain',
-];
-
-const ZIP_CONTAINER_DECLARED_MIME_TYPES = new Set([
-  'application/zip',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]);
-
-const MIME_EXTENSION_MAP: Record<string, string> = {
-  'application/pdf': 'pdf',
-  'application/zip': 'zip',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-    'docx',
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'text/csv': 'csv',
-  'text/plain': 'txt',
-};
-
-type UploadedByType = 'user' | 'recipient' | 'system';
-
-export interface UploadBase64Input {
-  contentBase64: string;
-  contentType?: string;
-  fileName: string;
-  organizationId: string;
-  requestId?: string;
-  submissionId?: string;
-  submissionItemId?: string;
-  uploadedByType?: UploadedByType;
-  uploadedById?: string;
-  metadata?: Record<string, unknown>;
-}
+import {
+  DEFAULT_ALLOWED_MIME_TYPES,
+  MIME_EXTENSION_MAP,
+  ZIP_CONTAINER_DECLARED_MIME_TYPES,
+} from './files.constants';
+import type { UploadBase64Input, UploadedByType } from './files.types';
 
 @Injectable()
 export class FilesService {

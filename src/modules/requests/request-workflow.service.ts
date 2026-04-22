@@ -11,10 +11,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { AUDIT_ACTIONS } from '../../common/audit/audit-actions';
 import type { AuditChannel } from '../../common/audit/audit-channel';
 import { RESOURCE_TYPES } from '../../common/audit/resource-types';
-import {
-  type PortalLinkPurpose,
-  type PortalLinkStatus,
-} from '../../common/portal/portal-link-types';
+import { type PortalLinkStatus } from '../../common/portal/portal-link-types';
 import { type ReminderChannel } from '../../common/reminders/reminder-types';
 import {
   type RequestStatus,
@@ -37,104 +34,22 @@ import {
   templateFields,
 } from '../../infrastructure/database/schema';
 import { WebhookService } from '../../infrastructure/webhooks/webhook.service';
-
-const TRANSITION_RULES: Record<
-  RequestTransitionAction,
-  readonly RequestStatus[]
-> = {
-  send: ['draft'],
-  close: ['sent', 'in_progress', 'completed'],
-  reopen: ['closed'],
-};
-
-const PORTAL_DEFAULT_EXPIRES_IN_MINUTES = 60 * 24 * 7;
-
-type AnswerActorType = 'recipient' | 'reviewer' | 'system';
-
-type AnswerSource = 'portal' | 'api';
-
-type ReviewDecisionType = 'approved' | 'rejected';
-
-type CommentAuthorType = 'reviewer' | 'recipient' | 'system';
-
-export interface CreateRequestInput {
-  organizationId: string;
-  workspaceId: string;
-  clientId: string;
-  templateId: string;
-  templateVersionId: string;
-  title: string;
-  message?: string;
-  dueAt?: string;
-  createdByUserId?: string;
-  requestCode?: string;
-  recipientIds: string[];
-}
-
-export interface TransitionRequestInput {
-  organizationId: string;
-  actorUserId?: string;
-  reason?: string;
-}
-
-export interface CreatePortalLinkInput {
-  organizationId: string;
-  purpose?: PortalLinkPurpose;
-  submissionId?: string;
-  recipientId?: string;
-  expiresInMinutes?: number;
-  maxUses?: number;
-  metadata?: Record<string, unknown>;
-  createdByUserId?: string;
-}
-
-export interface VerifyPortalLinkInput {
-  requestId: string;
-  token: string;
-  purpose?: PortalLinkPurpose;
-  consume?: boolean;
-}
-
-export interface AutosaveAnswerInput {
-  submissionItemId: string;
-  value: Record<string, unknown>;
-}
-
-export interface AutosaveSubmissionInput {
-  organizationId: string;
-  answers: AutosaveAnswerInput[];
-  answeredByType: AnswerActorType;
-  answeredById?: string;
-  source: AnswerSource;
-}
-
-export interface ReviewSubmissionItemInput {
-  organizationId: string;
-  reviewerId?: string;
-  note?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface CreateSubmissionItemCommentInput {
-  organizationId: string;
-  body: string;
-  authorType: CommentAuthorType;
-  authorId?: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface SendRequestReminderInput {
-  organizationId: string;
-  actorUserId?: string;
-  channel: ReminderChannel;
-  recipient: string;
-  subject?: string;
-  message?: string;
-  templateKey?: string;
-  templateVariables?: Record<string, unknown>;
-  locale?: string;
-  metadata?: Record<string, unknown>;
-}
+import { PORTAL_DEFAULT_EXPIRES_IN_MINUTES, TRANSITION_RULES } from './request-workflow.constants';
+import type {
+  AnswerActorType,
+  AnswerSource,
+  AutosaveAnswerInput,
+  AutosaveSubmissionInput,
+  CommentAuthorType,
+  CreatePortalLinkInput,
+  CreateRequestInput,
+  CreateSubmissionItemCommentInput,
+  ReviewDecisionType,
+  ReviewSubmissionItemInput,
+  SendRequestReminderInput,
+  TransitionRequestInput,
+  VerifyPortalLinkInput,
+} from './request-workflow.types';
 
 @Injectable()
 export class RequestWorkflowService {
