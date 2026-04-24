@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
+import { GoogleAuthService } from './google-auth.service';
 import { OrganizationEntitlementsService } from './organization-entitlements.service';
 import { AuthService } from './auth.service';
 import { InternalAuthGuard } from './internal-auth.guard';
@@ -12,6 +13,7 @@ import { WorkspaceMembershipGuard } from './workspace-membership.guard';
   controllers: [AuthController],
   providers: [
     AuthService,
+    GoogleAuthService,
     OrganizationEntitlementsService,
     InternalAuthGuard,
     OrganizationOwnerGuard,

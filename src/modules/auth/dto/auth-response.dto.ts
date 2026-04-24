@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AuthenticatedUserDto {
   @ApiProperty({ example: 'user_123' })
@@ -303,4 +303,53 @@ export class SignOutResponseDataDto {
 export class SignOutResponseDto {
   @ApiProperty({ type: () => SignOutResponseDataDto })
   data!: SignOutResponseDataDto;
+}
+
+export class GoogleAuthFlowResponseDataDto {
+  @ApiProperty({
+    example: 'authorization_required',
+    enum: ['authorization_required', 'link_required', 'linked', 'signed_in'],
+  })
+  outcome!: string;
+
+  @ApiPropertyOptional({
+    example: 'https://accounts.google.com/o/oauth2/v2/auth?...',
+  })
+  authorizationUrl?: string;
+
+  @ApiPropertyOptional({ type: () => AuthenticatedActorDto })
+  actor?: AuthenticatedActorDto;
+
+  @ApiPropertyOptional({ type: () => AuthTokensDto })
+  tokens?: AuthTokensDto;
+
+  @ApiPropertyOptional({ example: 'owner@acme.test' })
+  email?: string;
+
+  @ApiPropertyOptional({ example: 'owner@acme.test' })
+  providerEmail?: string;
+
+  @ApiPropertyOptional({ example: 'swd_gl_0123456789abcdef' })
+  linkToken?: string;
+
+  @ApiPropertyOptional({ example: true })
+  linked?: boolean;
+
+  @ApiPropertyOptional({ example: 'acme-advisory' })
+  organizationSlug?: string;
+}
+
+export class GoogleAuthFlowResponseDto {
+  @ApiProperty({ type: () => GoogleAuthFlowResponseDataDto })
+  data!: GoogleAuthFlowResponseDataDto;
+}
+
+export class GoogleUnlinkResponseDataDto {
+  @ApiProperty({ example: true })
+  unlinked!: boolean;
+}
+
+export class GoogleUnlinkResponseDto {
+  @ApiProperty({ type: () => GoogleUnlinkResponseDataDto })
+  data!: GoogleUnlinkResponseDataDto;
 }

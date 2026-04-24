@@ -5,6 +5,8 @@ export const AUDIT_ACTIONS = {
     internalAuthBootstrapCompleted:
       'security.internal_auth_bootstrap_completed',
     internalAuthEmailVerified: 'security.internal_auth_email_verified',
+    internalAuthIdentityLinked: 'security.internal_auth_identity_linked',
+    internalAuthIdentityUnlinked: 'security.internal_auth_identity_unlinked',
     internalAuthInviteCompleted: 'security.internal_auth_invite_completed',
     internalAuthPasswordResetCompleted:
       'security.internal_auth_password_reset_completed',

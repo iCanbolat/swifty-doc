@@ -41,6 +41,11 @@ export const runtimeEnvSchema = z
       .string()
       .url()
       .default('http://localhost:3000/accept-invite'),
+    INTERNAL_AUTH_GOOGLE_STATE_SECRET: z
+      .string()
+      .min(16)
+      .default('swiftydoc-google-auth-state-secret-local-1234567890'),
+    INTERNAL_AUTH_GOOGLE_STATE_TTL_MINUTES: numberFromEnv.default(15),
     INTERNAL_AUTH_EMAIL_VERIFICATION_URL_BASE: z
       .string()
       .url()
@@ -95,6 +100,22 @@ export const runtimeEnvSchema = z
     ODOO_USERNAME: z.string().min(1).optional(),
     ODOO_PASSWORD: z.string().min(1).optional(),
     ODOO_API_KEY: z.string().min(1).optional(),
+    GOOGLE_OIDC_AUTH_URL: z
+      .string()
+      .url()
+      .default('https://accounts.google.com/o/oauth2/v2/auth'),
+    GOOGLE_OIDC_TOKEN_URL: z
+      .string()
+      .url()
+      .default('https://oauth2.googleapis.com/token'),
+    GOOGLE_OIDC_USERINFO_URL: z
+      .string()
+      .url()
+      .default('https://openidconnect.googleapis.com/v1/userinfo'),
+    GOOGLE_OIDC_CLIENT_ID: z.string().min(1).optional(),
+    GOOGLE_OIDC_CLIENT_SECRET: z.string().min(1).optional(),
+    GOOGLE_OIDC_REDIRECT_URI: z.string().url().optional(),
+    GOOGLE_OIDC_SCOPE: z.string().min(1).default('openid email profile'),
     GOOGLE_DRIVE_API_BASE_URL: z
       .string()
       .url()
@@ -132,6 +153,27 @@ export const runtimeEnvSchema = z
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `${key} is required when STORAGE_DRIVER=bunny.`,
+            path: [key],
+          });
+        }
+      }
+    }
+
+    const googleOidcRequiredKeys = [
+      'GOOGLE_OIDC_CLIENT_ID',
+      'GOOGLE_OIDC_CLIENT_SECRET',
+      'GOOGLE_OIDC_REDIRECT_URI',
+    ] as const;
+    const hasAnyGoogleOidcKey = googleOidcRequiredKeys.some(
+      (key) => !!env[key],
+    );
+
+    if (hasAnyGoogleOidcKey) {
+      for (const key of googleOidcRequiredKeys) {
+        if (!env[key]) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `${key} is required when Google OIDC is partially configured.`,
             path: [key],
           });
         }

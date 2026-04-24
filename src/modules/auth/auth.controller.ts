@@ -5,6 +5,7 @@ import {
   Headers,
   Param,
   Post,
+  Query,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
@@ -21,6 +22,7 @@ import {
 import { CurrentActor } from './current-actor.decorator';
 import type { AuthenticatedInternalActor } from './auth.types';
 import { AuthService } from './auth.service';
+import { GoogleAuthService } from './google-auth.service';
 import { OrganizationEntitlementsService } from './organization-entitlements.service';
 import { InternalAuthGuard } from './internal-auth.guard';
 import { OrganizationPermissions } from './organization-policy.decorator';
@@ -33,6 +35,8 @@ import {
   CurrentActorResponseDto,
   EmailVerificationCompletedResponseDto,
   EmailVerificationRequestedResponseDto,
+  GoogleAuthFlowResponseDto,
+  GoogleUnlinkResponseDto,
   InvitePreviewResponseDto,
   OrganizationEntitlementsResponseDto,
   PasswordResetCompletedResponseDto,
@@ -43,12 +47,18 @@ import { RefreshSessionDto } from './dto/refresh-session.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignInDto } from './dto/sign-in.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
+import {
+  GoogleAuthCallbackQueryDto,
+  LinkGoogleDto,
+  StartGoogleAuthQueryDto,
+} from './dto/google-auth.dto';
 
 @ApiTags('Auth')
 @Controller('v1/auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
+    private readonly googleAuthService: GoogleAuthService,
     private readonly organizationEntitlementsService: OrganizationEntitlementsService,
   ) {}
 
@@ -97,6 +107,54 @@ export class AuthController {
 
     return {
       data: result,
+    };
+  }
+
+  @ApiOperation({
+    summary:
+      'Build the Google OIDC authorization URL for internal sign-in or self-serve owner sign-up.',
+  })
+  @ApiOkResponse({ type: GoogleAuthFlowResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
+  @ApiForbiddenResponse({ description: 'Bootstrap signup is disabled.' })
+  @ApiUnauthorizedResponse({
+    description: 'Google sign-in is not available for this organization.',
+  })
+  @Get('google/start')
+  async startGoogleAuth(@Query() query: StartGoogleAuthQueryDto) {
+    return {
+      data: await this.googleAuthService.startGoogleAuth({
+        inviteToken: query.inviteToken,
+        intent: query.intent,
+        legalName: query.legalName,
+        locale: query.locale,
+        organizationName: query.organizationName,
+        organizationSlug: query.organizationSlug,
+        primaryRegion: query.primaryRegion,
+        timezone: query.timezone,
+        workspaceCode: query.workspaceCode,
+        workspaceName: query.workspaceName,
+      }),
+    };
+  }
+
+  @ApiOperation({
+    summary:
+      'Complete the Google OIDC callback and continue internal auth or linking.',
+  })
+  @ApiOkResponse({ type: GoogleAuthFlowResponseDto })
+  @ApiBadRequestResponse({ description: 'Google callback query is invalid.' })
+  @ApiUnauthorizedResponse({
+    description: 'Google sign-in could not be completed.',
+  })
+  @Get('google/callback')
+  async completeGoogleCallback(@Query() query: GoogleAuthCallbackQueryDto) {
+    return {
+      data: await this.googleAuthService.completeGoogleCallback({
+        code: query.code,
+        error: query.error,
+        state: query.state,
+      }),
     };
   }
 
@@ -160,6 +218,46 @@ export class AuthController {
         actorUserId: actor.user.id,
         userId: actor.user.id,
       }),
+    };
+  }
+
+  @ApiOperation({
+    summary:
+      'Start Google linking from settings or finalize a pending Google link token for the authenticated internal user.',
+  })
+  @ApiBearerAuth('bearer')
+  @ApiOkResponse({ type: GoogleAuthFlowResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
+  @ApiUnauthorizedResponse({
+    description: 'Bearer token is missing or invalid.',
+  })
+  @UseGuards(InternalAuthGuard)
+  @Post('me/link-google')
+  async linkGoogle(
+    @CurrentActor() actor: AuthenticatedInternalActor,
+    @Body() body?: LinkGoogleDto,
+  ) {
+    return {
+      data: await this.googleAuthService.linkGoogle(actor, {
+        linkToken: body?.linkToken,
+      }),
+    };
+  }
+
+  @ApiOperation({
+    summary:
+      'Unlink the Google OIDC identity from the authenticated internal user.',
+  })
+  @ApiBearerAuth('bearer')
+  @ApiOkResponse({ type: GoogleUnlinkResponseDto })
+  @ApiUnauthorizedResponse({
+    description: 'Bearer token is missing or invalid.',
+  })
+  @UseGuards(InternalAuthGuard)
+  @Post('me/unlink-google')
+  async unlinkGoogle(@CurrentActor() actor: AuthenticatedInternalActor) {
+    return {
+      data: await this.googleAuthService.unlinkGoogle(actor),
     };
   }
 

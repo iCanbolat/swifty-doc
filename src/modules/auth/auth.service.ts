@@ -722,166 +722,62 @@ export class AuthService {
     workspaceCode?: string;
     workspaceName: string;
   }) {
-    if (
-      !this.configService.get('AUTH_BOOTSTRAP_ALLOW_SIGNUP', { infer: true })
-    ) {
-      throw new ForbiddenException('Bootstrap signup is disabled.');
-    }
+    this.assertBootstrapSignupEnabled();
 
-    const db = this.getDatabase();
-    const normalizedEmail = this.normalizeEmail(input.ownerEmail);
-    const organizationSlug = this.normalizeSlug(input.organizationSlug);
-    const workspaceCode = this.normalizeSlug(
-      input.workspaceCode ?? input.organizationSlug,
-    );
-    const now = new Date();
     const passwordHash = await this.hashPassword(input.password);
+    const result = await this.createBootstrappedOwnerSession({
+      authIdentity: {
+        emailVerifiedAt: null,
+        passwordHash,
+        provider: 'password',
+        providerSubject: this.normalizeEmail(input.ownerEmail),
+      },
+      legalName: input.legalName,
+      locale: input.locale,
+      organizationName: input.organizationName,
+      organizationSlug: input.organizationSlug,
+      ownerEmail: input.ownerEmail,
+      ownerFullName: input.ownerFullName,
+      phone: input.phone,
+      primaryRegion: input.primaryRegion,
+      timezone: input.timezone,
+      workspaceCode: input.workspaceCode,
+      workspaceName: input.workspaceName,
+    });
 
-    try {
-      const result = await db.transaction(async (tx) => {
-        const organizationId = randomUUID();
-        const workspaceId = randomUUID();
-        const userId = randomUUID();
+    await this.auditLogService.record({
+      category: 'security',
+      channel: 'api',
+      action: AUDIT_ACTIONS.security.internalAuthBootstrapCompleted,
+      authSurface: 'internal',
+      organizationId: result.organization.id,
+      actorId: result.userId,
+      actorType: 'user',
+      sessionId: result.sessionArtifacts.sessionId,
+      activeWorkspaceId:
+        result.sessionArtifacts.sessionValues.activeWorkspaceId,
+      resourceType: RESOURCE_TYPES.identity.organization,
+      resourceId: result.organization.id,
+      metadata: {
+        authProvider: 'password',
+        organizationSlug: result.organization.slug,
+      },
+    });
 
-        const [organization] = await tx
-          .insert(organizations)
-          .values({
-            id: organizationId,
-            slug: organizationSlug,
-            displayName: input.organizationName.trim(),
-            legalName: this.normalizeOptionalString(input.legalName) ?? null,
-            defaultLocale: this.normalizeOptionalString(input.locale) ?? 'en',
-            primaryRegion:
-              this.normalizeOptionalString(input.primaryRegion) ?? 'mena',
-            timezone: this.normalizeOptionalString(input.timezone) ?? 'UTC',
-            planTier: 'foundation',
-            dataResidencyPolicy: 'standard',
-            status: 'active',
-            createdAt: now,
-            archivedAt: null,
-          })
-          .returning();
+    const actor = await this.getAuthenticatedActor(
+      result.sessionArtifacts.sessionId,
+    );
 
-        const seededRoles = await tx
-          .insert(roles)
-          .values(
-            INTERNAL_ROLE_NAMES.map((roleName) => ({
-              id: randomUUID(),
-              organizationId,
-              name: roleName,
-              isSystemRole: true,
-              createdAt: now,
-            })),
-          )
-          .returning();
+    await this.issueEmailVerification({
+      organizationId: result.organization.id,
+      actorUserId: result.userId,
+      userId: result.userId,
+    });
 
-        const ownerRole = seededRoles.find(
-          (role) => role.name === 'organization_owner',
-        );
-
-        if (!ownerRole) {
-          throw new Error('Missing organization owner role seed.');
-        }
-
-        await tx.insert(workspaces).values({
-          id: workspaceId,
-          organizationId,
-          name: input.workspaceName.trim(),
-          code: workspaceCode,
-          defaultBrandingId: null,
-          defaultReminderPolicyId: null,
-          status: 'active',
-          createdAt: now,
-        });
-
-        await tx.insert(users).values({
-          id: userId,
-          email: normalizedEmail,
-          fullName: input.ownerFullName.trim(),
-          locale: this.normalizeOptionalString(input.locale) ?? 'en',
-          phone: this.normalizeOptionalString(input.phone) ?? null,
-          status: 'active',
-          lastLoginAt: now,
-          createdAt: now,
-        });
-
-        await tx.insert(authIdentities).values({
-          id: randomUUID(),
-          userId,
-          provider: 'password',
-          providerSubject: normalizedEmail,
-          passwordHash,
-          emailVerifiedAt: null,
-          lastAuthenticatedAt: now,
-          createdAt: now,
-          updatedAt: now,
-        });
-
-        await tx.insert(workspaceMemberships).values({
-          id: randomUUID(),
-          organizationId,
-          workspaceId,
-          userId,
-          roleId: ownerRole.id,
-          status: 'active',
-          createdAt: now,
-        });
-
-        const sessionArtifacts = this.issueSessionArtifacts({
-          activeWorkspaceId: workspaceId,
-          organizationId,
-          userAgent: null,
-          userId,
-          ipAddress: null,
-        });
-
-        await tx.insert(userSessions).values(sessionArtifacts.sessionValues);
-        await tx
-          .insert(refreshTokens)
-          .values(sessionArtifacts.refreshTokenValues);
-
-        return {
-          organization,
-          sessionArtifacts,
-          userId,
-        };
-      });
-
-      await this.auditLogService.record({
-        category: 'security',
-        channel: 'api',
-        action: AUDIT_ACTIONS.security.internalAuthBootstrapCompleted,
-        authSurface: 'internal',
-        organizationId: result.organization.id,
-        actorId: result.userId,
-        actorType: 'user',
-        sessionId: result.sessionArtifacts.sessionId,
-        activeWorkspaceId: result.sessionArtifacts.sessionValues.activeWorkspaceId,
-        resourceType: RESOURCE_TYPES.identity.organization,
-        resourceId: result.organization.id,
-        metadata: {
-          organizationSlug: result.organization.slug,
-        },
-      });
-
-      const actor = await this.getAuthenticatedActor(
-        result.sessionArtifacts.sessionId,
-      );
-
-      await this.issueEmailVerification({
-        organizationId: result.organization.id,
-        actorUserId: result.userId,
-        userId: result.userId,
-      });
-
-      return {
-        actor,
-        tokens: this.serializeTokens(result.sessionArtifacts),
-      };
-    } catch (error) {
-      this.rethrowConstraintViolation(error);
-      throw error;
-    }
+    return {
+      actor,
+      tokens: this.serializeTokens(result.sessionArtifacts),
+    };
   }
 
   async signIn(input: {
@@ -932,7 +828,11 @@ export class AuthService {
       throw new ForbiddenException('User account is not active.');
     }
 
-    if (!input.allowUnverified && !identityRecord.identity.emailVerifiedAt) {
+    const emailVerificationState = await this.getUserEmailVerificationState(
+      identityRecord.user.id,
+    );
+
+    if (!input.allowUnverified && !emailVerificationState.emailVerifiedAt) {
       throw new ForbiddenException(
         'Email verification is required before sign in.',
       );
@@ -1055,21 +955,11 @@ export class AuthService {
       throw new UnauthorizedException('Refresh token is invalid.');
     }
 
-    const [identity] = await db
-      .select({
-        emailVerifiedAt: authIdentities.emailVerifiedAt,
-        id: authIdentities.id,
-      })
-      .from(authIdentities)
-      .where(
-        and(
-          eq(authIdentities.userId, sessionRecord.user.id),
-          eq(authIdentities.provider, 'password'),
-        ),
-      )
-      .limit(1);
+    const emailVerificationState = await this.getUserEmailVerificationState(
+      sessionRecord.user.id,
+    );
 
-    if (!identity?.emailVerifiedAt) {
+    if (!emailVerificationState.emailVerifiedAt) {
       await db.transaction(async (tx) => {
         await tx
           .update(refreshTokens)
@@ -1331,7 +1221,242 @@ export class AuthService {
     });
   }
 
-  private async resolveInviteToken(token: string) {
+  public async createInternalSessionForIdentity(input: {
+    activeWorkspaceId: string;
+    emailVerifiedAt: Date | null;
+    identityId: string;
+    organizationId: string;
+    roleNames: string[];
+    userId: string;
+  }) {
+    const db = this.getDatabase();
+    const now = new Date();
+    const sessionArtifacts = this.issueSessionArtifacts({
+      activeWorkspaceId: input.activeWorkspaceId,
+      organizationId: input.organizationId,
+      userAgent: null,
+      userId: input.userId,
+      ipAddress: null,
+    });
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(users)
+        .set({
+          lastLoginAt: now,
+        })
+        .where(eq(users.id, input.userId));
+
+      await tx
+        .update(authIdentities)
+        .set({
+          emailVerifiedAt: input.emailVerifiedAt ?? undefined,
+          lastAuthenticatedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(authIdentities.id, input.identityId));
+
+      if (input.emailVerifiedAt) {
+        await tx
+          .update(authIdentities)
+          .set({
+            emailVerifiedAt: input.emailVerifiedAt,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(authIdentities.userId, input.userId),
+              eq(authIdentities.provider, 'password'),
+              isNull(authIdentities.emailVerifiedAt),
+            ),
+          );
+      }
+
+      await tx.insert(userSessions).values(sessionArtifacts.sessionValues);
+      await tx
+        .insert(refreshTokens)
+        .values(sessionArtifacts.refreshTokenValues);
+    });
+
+    await this.auditLogService.record({
+      category: 'security',
+      channel: 'api',
+      action: AUDIT_ACTIONS.security.internalAuthSessionStarted,
+      authSurface: 'internal',
+      organizationId: input.organizationId,
+      actorId: input.userId,
+      actorType: 'user',
+      sessionId: sessionArtifacts.sessionId,
+      activeWorkspaceId: input.activeWorkspaceId,
+      resourceType: RESOURCE_TYPES.identity.userSession,
+      resourceId: sessionArtifacts.sessionId,
+      metadata: {
+        roleNames: input.roleNames,
+      },
+    });
+
+    const actor = await this.getAuthenticatedActor(sessionArtifacts.sessionId);
+
+    return {
+      actor,
+      tokens: this.serializeTokens(sessionArtifacts),
+    };
+  }
+
+  public assertBootstrapSignupEnabled() {
+    if (
+      !this.configService.get('AUTH_BOOTSTRAP_ALLOW_SIGNUP', { infer: true })
+    ) {
+      throw new ForbiddenException('Bootstrap signup is disabled.');
+    }
+  }
+
+  public async createBootstrappedOwnerSession(input: {
+    authIdentity: {
+      emailVerifiedAt: Date | null;
+      passwordHash?: string;
+      provider: 'google_oidc' | 'password';
+      providerSubject: string;
+    };
+    legalName?: string;
+    locale?: string;
+    organizationName: string;
+    organizationSlug: string;
+    ownerEmail: string;
+    ownerFullName: string;
+    phone?: string;
+    primaryRegion?: string;
+    timezone?: string;
+    workspaceCode?: string;
+    workspaceName: string;
+  }) {
+    const db = this.getDatabase();
+    const normalizedEmail = this.normalizeEmail(input.ownerEmail);
+    const organizationSlug = this.normalizeSlug(input.organizationSlug);
+    const workspaceCode = this.normalizeSlug(
+      input.workspaceCode ?? input.organizationSlug,
+    );
+    const now = new Date();
+
+    try {
+      return await db.transaction(async (tx) => {
+        const organizationId = randomUUID();
+        const workspaceId = randomUUID();
+        const userId = randomUUID();
+
+        const [organization] = await tx
+          .insert(organizations)
+          .values({
+            id: organizationId,
+            slug: organizationSlug,
+            displayName: input.organizationName.trim(),
+            legalName: this.normalizeOptionalString(input.legalName) ?? null,
+            defaultLocale: this.normalizeOptionalString(input.locale) ?? 'en',
+            primaryRegion:
+              this.normalizeOptionalString(input.primaryRegion) ?? 'mena',
+            timezone: this.normalizeOptionalString(input.timezone) ?? 'UTC',
+            planTier: 'foundation',
+            dataResidencyPolicy: 'standard',
+            status: 'active',
+            createdAt: now,
+            archivedAt: null,
+          })
+          .returning();
+
+        const seededRoles = await tx
+          .insert(roles)
+          .values(
+            INTERNAL_ROLE_NAMES.map((roleName) => ({
+              id: randomUUID(),
+              organizationId,
+              name: roleName,
+              isSystemRole: true,
+              createdAt: now,
+            })),
+          )
+          .returning();
+
+        const ownerRole = seededRoles.find(
+          (role) => role.name === 'organization_owner',
+        );
+
+        if (!ownerRole) {
+          throw new Error('Missing organization owner role seed.');
+        }
+
+        await tx.insert(workspaces).values({
+          id: workspaceId,
+          organizationId,
+          name: input.workspaceName.trim(),
+          code: workspaceCode,
+          defaultBrandingId: null,
+          defaultReminderPolicyId: null,
+          status: 'active',
+          createdAt: now,
+        });
+
+        await tx.insert(users).values({
+          id: userId,
+          email: normalizedEmail,
+          fullName: input.ownerFullName.trim(),
+          locale: this.normalizeOptionalString(input.locale) ?? 'en',
+          phone: this.normalizeOptionalString(input.phone) ?? null,
+          status: 'active',
+          lastLoginAt: now,
+          createdAt: now,
+        });
+
+        await tx.insert(authIdentities).values({
+          id: randomUUID(),
+          userId,
+          provider: input.authIdentity.provider,
+          providerSubject:
+            input.authIdentity.provider === 'password'
+              ? normalizedEmail
+              : input.authIdentity.providerSubject.trim(),
+          passwordHash: input.authIdentity.passwordHash ?? null,
+          emailVerifiedAt: input.authIdentity.emailVerifiedAt,
+          lastAuthenticatedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        });
+
+        await tx.insert(workspaceMemberships).values({
+          id: randomUUID(),
+          organizationId,
+          workspaceId,
+          userId,
+          roleId: ownerRole.id,
+          status: 'active',
+          createdAt: now,
+        });
+
+        const sessionArtifacts = this.issueSessionArtifacts({
+          activeWorkspaceId: workspaceId,
+          organizationId,
+          userAgent: null,
+          userId,
+          ipAddress: null,
+        });
+
+        await tx.insert(userSessions).values(sessionArtifacts.sessionValues);
+        await tx
+          .insert(refreshTokens)
+          .values(sessionArtifacts.refreshTokenValues);
+
+        return {
+          organization,
+          sessionArtifacts,
+          userId,
+        };
+      });
+    } catch (error) {
+      this.rethrowConstraintViolation(error);
+      throw error;
+    }
+  }
+
+  public async resolveInviteToken(token: string) {
     const db = this.getDatabase();
     const now = new Date();
     const [tokenRecord] = await db
@@ -1542,6 +1667,13 @@ export class AuthService {
     organizationId: string,
   ) {
     const context = await this.getInviteContextForUser(userId, organizationId);
+    const emailVerificationState =
+      await this.getUserEmailVerificationState(userId);
+
+    if (emailVerificationState.emailVerifiedAt) {
+      throw new ConflictException('User email is already verified.');
+    }
+
     const db = this.getDatabase();
     const [identity] = await db
       .select()
@@ -1716,16 +1848,9 @@ export class AuthService {
       sessionRecord.organization.id,
     );
 
-    const [identity] = await db
-      .select({ emailVerifiedAt: authIdentities.emailVerifiedAt })
-      .from(authIdentities)
-      .where(
-        and(
-          eq(authIdentities.userId, sessionRecord.user.id),
-          eq(authIdentities.provider, 'password'),
-        ),
-      )
-      .limit(1);
+    const emailVerificationState = await this.getUserEmailVerificationState(
+      sessionRecord.user.id,
+    );
 
     if (memberships.length === 0) {
       throw new ForbiddenException(
@@ -1782,7 +1907,8 @@ export class AuthService {
       user: {
         createdAt: sessionRecord.user.createdAt.toISOString(),
         email: sessionRecord.user.email,
-        emailVerifiedAt: identity?.emailVerifiedAt?.toISOString() ?? null,
+        emailVerifiedAt:
+          emailVerificationState.emailVerifiedAt?.toISOString() ?? null,
         fullName: sessionRecord.user.fullName,
         id: sessionRecord.user.id,
         lastLoginAt: sessionRecord.user.lastLoginAt?.toISOString() ?? null,
@@ -1828,7 +1954,7 @@ export class AuthService {
     return sessionRecord;
   }
 
-  private async listActiveMemberships(userId: string, organizationId: string) {
+  public async listActiveMemberships(userId: string, organizationId: string) {
     const db = this.getDatabase();
 
     return db
@@ -2037,6 +2163,156 @@ export class AuthService {
     }
 
     return timingSafeEqual(derivedKey, expectedBuffer);
+  }
+
+  private async getUserEmailVerificationState(userId: string) {
+    const db = this.getDatabase();
+    const identityRows = await db
+      .select({ emailVerifiedAt: authIdentities.emailVerifiedAt })
+      .from(authIdentities)
+      .where(eq(authIdentities.userId, userId));
+
+    const emailVerifiedAt = identityRows.reduce<Date | null>((latest, row) => {
+      if (!row.emailVerifiedAt) {
+        return latest;
+      }
+
+      if (!latest || row.emailVerifiedAt.getTime() > latest.getTime()) {
+        return row.emailVerifiedAt;
+      }
+
+      return latest;
+    }, null);
+
+    return {
+      emailVerifiedAt,
+    };
+  }
+
+  public async resolveActiveOrganizationBySlug(organizationSlug: string) {
+    const db = this.getDatabase();
+    const [organization] = await db
+      .select({
+        displayName: organizations.displayName,
+        id: organizations.id,
+        slug: organizations.slug,
+        status: organizations.status,
+      })
+      .from(organizations)
+      .where(eq(organizations.slug, this.normalizeSlug(organizationSlug)))
+      .limit(1);
+
+    if (!organization || organization.status !== 'active') {
+      throw new UnauthorizedException(
+        'Google sign-in is not available for this organization.',
+      );
+    }
+
+    return organization;
+  }
+
+  public async resolveActiveOrganizationById(organizationId: string) {
+    const db = this.getDatabase();
+    const [organization] = await db
+      .select({
+        displayName: organizations.displayName,
+        id: organizations.id,
+        slug: organizations.slug,
+        status: organizations.status,
+      })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+
+    if (!organization || organization.status !== 'active') {
+      throw new UnauthorizedException(
+        'Google sign-in is not available for this organization.',
+      );
+    }
+
+    return organization;
+  }
+
+  public async findUserByEmail(email: string) {
+    const db = this.getDatabase();
+    const [user] = await db
+      .select({
+        email: users.email,
+        id: users.id,
+        status: users.status,
+      })
+      .from(users)
+      .where(eq(users.email, this.normalizeEmail(email)))
+      .limit(1);
+
+    return user ?? null;
+  }
+
+  public async findIdentityByProviderSubject(
+    provider: 'google_oidc' | 'password',
+    providerSubject: string,
+  ) {
+    const db = this.getDatabase();
+    const [identity] = await db
+      .select()
+      .from(authIdentities)
+      .where(
+        and(
+          eq(authIdentities.provider, provider),
+          eq(authIdentities.providerSubject, providerSubject),
+        ),
+      )
+      .limit(1);
+
+    return identity ?? null;
+  }
+
+  public async findIdentityForUser(
+    userId: string,
+    provider: 'google_oidc' | 'password',
+  ) {
+    const db = this.getDatabase();
+    const [identity] = await db
+      .select()
+      .from(authIdentities)
+      .where(
+        and(
+          eq(authIdentities.userId, userId),
+          eq(authIdentities.provider, provider),
+        ),
+      )
+      .limit(1);
+
+    return identity ?? null;
+  }
+
+  public async listInviteEligibleMemberships(
+    userId: string,
+    organizationId: string,
+  ) {
+    const db = this.getDatabase();
+
+    return db
+      .select({
+        membershipId: workspaceMemberships.id,
+        status: workspaceMemberships.status,
+        workspaceId: workspaces.id,
+        workspaceName: workspaces.name,
+      })
+      .from(workspaceMemberships)
+      .innerJoin(
+        workspaces,
+        eq(workspaceMemberships.workspaceId, workspaces.id),
+      )
+      .where(
+        and(
+          eq(workspaceMemberships.userId, userId),
+          eq(workspaceMemberships.organizationId, organizationId),
+          inArray(workspaceMemberships.status, ['active', 'invited']),
+          eq(workspaces.status, 'active'),
+        ),
+      )
+      .orderBy(asc(workspaces.name));
   }
 
   private normalizeEmail(email: string): string {
