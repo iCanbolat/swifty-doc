@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../../common/http/pagination.dto';
 import {
   OAUTH_APPLICATION_STATUS_VALUES,
   OAUTH_APPLICATION_TYPE_VALUES,
@@ -69,4 +70,7 @@ export class OAuthApplicationResponseDto {
 export class OAuthApplicationListResponseDto {
   @ApiProperty({ type: () => OAuthApplicationDataDto, isArray: true })
   data!: OAuthApplicationDataDto[];
+
+  @ApiProperty({ type: () => PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }

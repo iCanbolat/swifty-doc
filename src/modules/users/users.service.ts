@@ -6,8 +6,12 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import {
+  PaginatedResult,
+  paginateResult,
+} from '../../common/http/pagination.dto';
 import { AUDIT_ACTIONS } from '../../common/audit/audit-actions';
 import { RESOURCE_TYPES } from '../../common/audit/resource-types';
 import { AuditLogService } from '../../infrastructure/audit/audit-log.service';
@@ -22,6 +26,7 @@ import {
 } from '../../infrastructure/database/schema';
 import type {
   CreateManagedUserInput,
+  ListManagedUsersInput,
   ManagedMembershipStatus,
   ManagedUserStatus,
   ManagedUserView,
@@ -57,16 +62,51 @@ export class UsersService {
     private readonly databaseService: DatabaseService,
   ) {}
 
-  async listUsers(organizationId: string): Promise<ManagedUserView[]> {
-    const rows = await this.listUserRows(organizationId);
-    return this.serializeUsers(rows);
+  async listUsers(
+    input: ListManagedUsersInput,
+  ): Promise<PaginatedResult<ManagedUserView>> {
+    const db = this.getDatabase();
+    const conditions = this.buildUserListConditions(input);
+
+    const [countRows, userRows] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(distinct ${users.id})` })
+        .from(workspaceMemberships)
+        .innerJoin(users, eq(users.id, workspaceMemberships.userId))
+        .where(and(...conditions)),
+      db
+        .select({
+          userId: users.id,
+          fullName: users.fullName,
+        })
+        .from(workspaceMemberships)
+        .innerJoin(users, eq(users.id, workspaceMemberships.userId))
+        .where(and(...conditions))
+        .groupBy(users.id, users.fullName)
+        .orderBy(asc(users.fullName), asc(users.id))
+        .limit(input.pagination.pageSize)
+        .offset(input.pagination.offset),
+    ]);
+
+    const total = countRows[0]?.count ?? 0;
+
+    if (userRows.length === 0) {
+      return paginateResult([], total, input.pagination);
+    }
+
+    const rows = await this.listUserRows({
+      organizationId: input.organizationId,
+      userIds: userRows.map((row) => row.userId),
+    });
+
+    return paginateResult(this.serializeUsers(rows), total, input.pagination);
   }
 
   async getUser(
     userId: string,
     organizationId: string,
   ): Promise<ManagedUserView> {
-    const rows = await this.listUserRows(organizationId, userId);
+    const rows = await this.listUserRows({ organizationId, userId });
 
     if (rows.length === 0) {
       throw new NotFoundException('User not found.');
@@ -311,17 +351,28 @@ export class UsersService {
     });
   }
 
-  private async listUserRows(
-    organizationId: string,
-    userId?: string,
-  ): Promise<UserRow[]> {
+  private async listUserRows(input: {
+    organizationId: string;
+    userId?: string;
+    userIds?: string[];
+  }): Promise<UserRow[]> {
     const db = this.getDatabase();
-    const condition = userId
-      ? and(
-          eq(workspaceMemberships.organizationId, organizationId),
-          eq(users.id, userId),
-        )
-      : eq(workspaceMemberships.organizationId, organizationId);
+
+    if (input.userIds && input.userIds.length === 0) {
+      return [];
+    }
+
+    const conditions = [
+      eq(workspaceMemberships.organizationId, input.organizationId),
+    ];
+
+    if (input.userId) {
+      conditions.push(eq(users.id, input.userId));
+    }
+
+    if (input.userIds) {
+      conditions.push(inArray(users.id, input.userIds));
+    }
 
     return db
       .select({
@@ -357,8 +408,39 @@ export class UsersService {
           eq(authIdentities.provider, 'password'),
         ),
       )
-      .where(condition)
+      .where(and(...conditions))
       .orderBy(asc(users.fullName), asc(workspaces.name));
+  }
+
+  private buildUserListConditions(input: ListManagedUsersInput) {
+    const conditions = [
+      eq(workspaceMemberships.organizationId, input.organizationId),
+    ];
+
+    if (input.status) {
+      conditions.push(eq(users.status, input.status));
+    }
+
+    if (input.workspaceId) {
+      conditions.push(eq(workspaceMemberships.workspaceId, input.workspaceId));
+    }
+
+    const search = this.normalizeOptionalString(input.search);
+
+    if (search) {
+      const pattern = `%${search}%`;
+      const searchCondition = or(
+        ilike(users.fullName, pattern),
+        ilike(users.email, pattern),
+        ilike(users.phone, pattern),
+      );
+
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+
+    return conditions;
   }
 
   private serializeUsers(rows: UserRow[]): ManagedUserView[] {

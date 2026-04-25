@@ -1,3 +1,5 @@
+import type { PaginationParams } from '../../common/http/pagination.dto';
+
 export const TEMPLATE_STATUS_VALUES = [
   'draft',
   'published',
@@ -29,6 +31,14 @@ export interface CreateTemplateInput {
   description?: string;
   status?: TemplateStatus;
   actorUserId: string;
+}
+
+export interface ListTemplatesInput {
+  organizationId: string;
+  pagination: PaginationParams;
+  search?: string;
+  status?: TemplateStatus;
+  workspaceId: string;
 }
 
 export interface UpdateTemplateInput {

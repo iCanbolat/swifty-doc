@@ -1,3 +1,5 @@
+import type { PaginationParams } from '../../common/http/pagination.dto';
+
 export const WORKSPACE_STATUS_VALUES = [
   'active',
   'disabled',
@@ -11,6 +13,13 @@ export interface CreateWorkspaceInput {
   code: string;
   name: string;
   organizationId: string;
+  status?: WorkspaceStatus;
+}
+
+export interface ListWorkspacesInput {
+  organizationId: string;
+  pagination: PaginationParams;
+  search?: string;
   status?: WorkspaceStatus;
 }
 

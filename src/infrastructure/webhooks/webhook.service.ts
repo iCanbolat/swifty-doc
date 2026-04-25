@@ -7,7 +7,11 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHmac, randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
+import {
+  PaginatedResult,
+  paginateResult,
+} from '../../common/http/pagination.dto';
 import { AUDIT_ACTIONS } from '../../common/audit/audit-actions';
 import { RESOURCE_TYPES } from '../../common/audit/resource-types';
 import type { RuntimeEnv } from '../../common/config/runtime-env';
@@ -21,6 +25,8 @@ import { DatabaseService } from '../database/database.service';
 import { webhookDeliveries, webhookEndpoints } from '../database/schema';
 import { JobQueueService } from '../queue/job-queue.service';
 import type {
+  ListWebhookDeliveriesInput,
+  ListWebhookEndpointsInput,
   WebhookDeliveryJobPayload,
   WebhookDeliveryRecord,
   WebhookEndpointRecord,
@@ -89,23 +95,48 @@ export class WebhookService implements OnModuleInit {
   }
 
   async listEndpoints(
-    organizationId: string,
-  ): Promise<WebhookEndpointRecord[]> {
+    input: ListWebhookEndpointsInput,
+  ): Promise<PaginatedResult<WebhookEndpointRecord>> {
     const db = this.getDatabase();
-    const endpoints = await db
-      .select()
-      .from(webhookEndpoints)
-      .where(eq(webhookEndpoints.organizationId, organizationId))
-      .orderBy(desc(webhookEndpoints.createdAt));
+    const conditions = [
+      eq(webhookEndpoints.organizationId, input.organizationId),
+    ];
 
-    return endpoints.map((endpoint) => this.mapEndpointRecord(endpoint));
+    const search = this.normalizeOptionalString(input.search);
+
+    if (search) {
+      const pattern = `%${search}%`;
+      const searchCondition = or(ilike(webhookEndpoints.url, pattern));
+
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+
+    const [countRows, endpoints] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(webhookEndpoints)
+        .where(and(...conditions)),
+      db
+        .select()
+        .from(webhookEndpoints)
+        .where(and(...conditions))
+        .orderBy(desc(webhookEndpoints.createdAt), desc(webhookEndpoints.id))
+        .limit(input.pagination.pageSize)
+        .offset(input.pagination.offset),
+    ]);
+
+    return paginateResult(
+      endpoints.map((endpoint) => this.mapEndpointRecord(endpoint)),
+      countRows[0]?.count ?? 0,
+      input.pagination,
+    );
   }
 
-  async listDeliveries(input: {
-    organizationId: string;
-    endpointId?: string;
-    status?: WebhookDeliveryStatus;
-  }): Promise<WebhookDeliveryRecord[]> {
+  async listDeliveries(
+    input: ListWebhookDeliveriesInput,
+  ): Promise<PaginatedResult<WebhookDeliveryRecord>> {
     const db = this.getDatabase();
     const conditions = [
       eq(webhookDeliveries.organizationId, input.organizationId),
@@ -119,35 +150,46 @@ export class WebhookService implements OnModuleInit {
       conditions.push(eq(webhookDeliveries.status, input.status));
     }
 
-    const deliveries = await db
-      .select({
-        id: webhookDeliveries.id,
-        organizationId: webhookDeliveries.organizationId,
-        endpointId: webhookDeliveries.endpointId,
-        endpointUrl: webhookEndpoints.url,
-        eventId: webhookDeliveries.eventId,
-        eventType: webhookDeliveries.eventType,
-        requestBody: webhookDeliveries.requestBody,
-        status: webhookDeliveries.status,
-        attemptCount: webhookDeliveries.attemptCount,
-        responseCode: webhookDeliveries.responseCode,
-        lastErrorMessage: webhookDeliveries.lastErrorMessage,
-        sourceDeliveryId: webhookDeliveries.sourceDeliveryId,
-        lastAttemptedAt: webhookDeliveries.lastAttemptedAt,
-        deliveredAt: webhookDeliveries.deliveredAt,
-        createdAt: webhookDeliveries.createdAt,
-        updatedAt: webhookDeliveries.updatedAt,
-      })
-      .from(webhookDeliveries)
-      .innerJoin(
-        webhookEndpoints,
-        eq(webhookEndpoints.id, webhookDeliveries.endpointId),
-      )
-      .where(and(...conditions))
-      .orderBy(desc(webhookDeliveries.createdAt))
-      .limit(100);
+    const [countRows, deliveries] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(webhookDeliveries)
+        .where(and(...conditions)),
+      db
+        .select({
+          id: webhookDeliveries.id,
+          organizationId: webhookDeliveries.organizationId,
+          endpointId: webhookDeliveries.endpointId,
+          endpointUrl: webhookEndpoints.url,
+          eventId: webhookDeliveries.eventId,
+          eventType: webhookDeliveries.eventType,
+          requestBody: webhookDeliveries.requestBody,
+          status: webhookDeliveries.status,
+          attemptCount: webhookDeliveries.attemptCount,
+          responseCode: webhookDeliveries.responseCode,
+          lastErrorMessage: webhookDeliveries.lastErrorMessage,
+          sourceDeliveryId: webhookDeliveries.sourceDeliveryId,
+          lastAttemptedAt: webhookDeliveries.lastAttemptedAt,
+          deliveredAt: webhookDeliveries.deliveredAt,
+          createdAt: webhookDeliveries.createdAt,
+          updatedAt: webhookDeliveries.updatedAt,
+        })
+        .from(webhookDeliveries)
+        .innerJoin(
+          webhookEndpoints,
+          eq(webhookEndpoints.id, webhookDeliveries.endpointId),
+        )
+        .where(and(...conditions))
+        .orderBy(desc(webhookDeliveries.createdAt), desc(webhookDeliveries.id))
+        .limit(input.pagination.pageSize)
+        .offset(input.pagination.offset),
+    ]);
 
-    return deliveries.map((delivery) => this.mapDeliveryRecord(delivery));
+    return paginateResult(
+      deliveries.map((delivery) => this.mapDeliveryRecord(delivery)),
+      countRows[0]?.count ?? 0,
+      input.pagination,
+    );
   }
 
   async replayDelivery(
@@ -536,6 +578,11 @@ export class WebhookService implements OnModuleInit {
   private extractResponseCode(errorMessage: string): number | null {
     const match = errorMessage.match(/status (\d{3})/);
     return match ? Number(match[1]) : null;
+  }
+
+  private normalizeOptionalString(value?: string): string | undefined {
+    const normalized = value?.trim();
+    return normalized ? normalized : undefined;
   }
 
   private getDatabase() {

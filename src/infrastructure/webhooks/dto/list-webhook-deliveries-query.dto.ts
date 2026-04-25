@@ -6,12 +6,13 @@ import {
   IsString,
   MaxLength,
 } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/http/pagination.dto';
 import {
   WEBHOOK_DELIVERY_STATUS_VALUES,
   type WebhookDeliveryStatus,
 } from '../../../common/webhooks/webhook-delivery-types';
 
-export class ListWebhookDeliveriesQueryDto {
+export class ListWebhookDeliveriesQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ example: 'webhook_endpoint_123', maxLength: 120 })
   @IsOptional()
   @IsString()

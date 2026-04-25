@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,12 +19,14 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { resolvePagination } from '../../common/http/pagination.dto';
 import { CurrentActor } from '../auth/current-actor.decorator';
 import type { AuthenticatedInternalActor } from '../auth/auth.types';
 import { InternalAuthGuard } from '../auth/internal-auth.guard';
 import { OrganizationPermissions } from '../auth/organization-policy.decorator';
 import { OrganizationPolicyGuard } from '../auth/organization-policy.guard';
 import { CreateUserDto } from './dto/create-user.dto';
+import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import {
   UserInviteDispatchResponseDto,
@@ -47,12 +50,20 @@ export class UsersController {
     summary: 'List internal users for the current organization.',
   })
   @ApiOkResponse({ type: UserListResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
   @OrganizationPermissions('users.read')
   @Get()
-  async listUsers(@CurrentActor() actor: AuthenticatedInternalActor) {
-    return {
-      data: await this.usersService.listUsers(actor.organization.id),
-    };
+  async listUsers(
+    @CurrentActor() actor: AuthenticatedInternalActor,
+    @Query() query: ListUsersQueryDto,
+  ) {
+    return this.usersService.listUsers({
+      organizationId: actor.organization.id,
+      pagination: resolvePagination(query),
+      search: query.search,
+      status: query.status,
+      workspaceId: query.workspaceId,
+    });
   }
 
   @ApiOperation({

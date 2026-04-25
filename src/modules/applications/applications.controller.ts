@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,12 +19,14 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { resolvePagination } from '../../common/http/pagination.dto';
 import { CurrentActor } from '../auth/current-actor.decorator';
 import { InternalAuthGuard } from '../auth/internal-auth.guard';
 import { OrganizationOwnerGuard } from '../auth/organization-owner.guard';
 import type { AuthenticatedInternalActor } from '../auth/auth.types';
 import { ApplicationsService } from './applications.service';
 import { CreateOAuthApplicationDto } from './dto/create-oauth-application.dto';
+import { ListOAuthApplicationsQueryDto } from './dto/list-oauth-applications-query.dto';
 import { OAuthApplicationCredentialResponseDto } from './dto/oauth-application-credential-response.dto';
 import {
   OAuthApplicationListResponseDto,
@@ -43,19 +46,28 @@ export class ApplicationsController {
     summary: 'List registered OAuth applications for an organization.',
   })
   @ApiOkResponse({ type: OAuthApplicationListResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
   @ApiUnauthorizedResponse({
     description: 'Bearer token is missing or invalid.',
   })
   @Get()
-  async listApplications(@CurrentActor() actor: AuthenticatedInternalActor) {
-    const applications = await this.applicationsService.listApplications(
-      actor.organization.id,
-    );
+  async listApplications(
+    @CurrentActor() actor: AuthenticatedInternalActor,
+    @Query() query: ListOAuthApplicationsQueryDto,
+  ) {
+    const result = await this.applicationsService.listApplications({
+      applicationType: query.applicationType,
+      organizationId: actor.organization.id,
+      pagination: resolvePagination(query),
+      search: query.search,
+      status: query.status,
+    });
 
     return {
-      data: applications.map((application) =>
+      data: result.data.map((application) =>
         this.applicationsService.sanitizeApplication(application),
       ),
+      meta: result.meta,
     };
   }
 

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../../common/http/pagination.dto';
 import { AUDIT_ACTIONS } from '../../../common/audit/audit-actions';
 import { AUDIT_CHANNEL_VALUES } from '../../../common/audit/audit-channel';
 import { RESOURCE_TYPE_VALUES } from '../../../common/audit/resource-types';
@@ -125,4 +126,7 @@ export class AuditEventViewDto {
 export class AuditEventListResponseDto {
   @ApiProperty({ type: () => AuditEventViewDto, isArray: true })
   data!: AuditEventViewDto[];
+
+  @ApiProperty({ type: () => PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }

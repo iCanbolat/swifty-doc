@@ -1,3 +1,5 @@
+import type { PaginationParams } from '../../common/http/pagination.dto';
+
 export const OAUTH_APPLICATION_TYPE_VALUES = [
   'confidential',
   'public',
@@ -38,6 +40,14 @@ export interface CreateOAuthApplicationInput {
   redirectUris?: string[];
   allowedScopes?: string[];
   applicationType?: OAuthApplicationType;
+}
+
+export interface ListOAuthApplicationsInput {
+  applicationType?: OAuthApplicationType;
+  organizationId: string;
+  pagination: PaginationParams;
+  search?: string;
+  status?: OAuthApplicationStatus;
 }
 
 export interface UpdateOAuthApplicationInput {

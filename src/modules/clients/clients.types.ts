@@ -1,3 +1,5 @@
+import type { PaginationParams } from '../../common/http/pagination.dto';
+
 export const CLIENT_STATUS_VALUES = ['active', 'archived'] as const;
 
 export type ClientStatus = (typeof CLIENT_STATUS_VALUES)[number];
@@ -24,6 +26,14 @@ export interface CreateClientInput {
   externalRef?: string;
   metadata?: Record<string, unknown>;
   actorUserId: string;
+}
+
+export interface ListClientsInput {
+  organizationId: string;
+  pagination: PaginationParams;
+  search?: string;
+  status?: ClientStatus;
+  workspaceId: string;
 }
 
 export interface UpdateClientInput {

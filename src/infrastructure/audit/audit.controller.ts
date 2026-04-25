@@ -8,6 +8,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { resolvePagination } from '../../common/http/pagination.dto';
 import { CurrentActor } from '../../modules/auth/current-actor.decorator';
 import type { AuthenticatedInternalActor } from '../../modules/auth/auth.types';
 import { InternalAuthGuard } from '../../modules/auth/internal-auth.guard';
@@ -39,8 +40,9 @@ export class AuditEventsController {
     @CurrentActor() actor: AuthenticatedInternalActor,
     @Query() query: ListAuditEventsQueryDto,
   ): Promise<AuditEventListResponseDto> {
-    return {
-      data: await this.auditLogService.listEvents(actor.organization.id, {
+    return this.auditLogService.listEvents(
+      actor.organization.id,
+      {
         action: query.action,
         actorId: query.actorId,
         authSurface: query.authSurface,
@@ -49,12 +51,15 @@ export class AuditEventsController {
         channel: query.channel,
         impersonatorActorId: query.impersonatorActorId,
         impersonatorSessionId: query.impersonatorSessionId,
-        limit: query.limit,
         resourceId: query.resourceId,
         resourceType: query.resourceType,
         sessionId: query.sessionId,
         workspaceId: query.workspaceId,
+      },
+      resolvePagination({
+        page: query.page,
+        pageSize: query.limit ?? query.pageSize,
       }),
-    };
+    );
   }
 }

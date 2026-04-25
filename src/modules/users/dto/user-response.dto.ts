@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../../common/http/pagination.dto';
 import {
   MANAGED_MEMBERSHIP_STATUS_VALUES,
   MANAGED_USER_STATUS_VALUES,
@@ -78,4 +79,7 @@ export class UserResponseDto {
 export class UserListResponseDto {
   @ApiProperty({ type: () => ManagedUserDataDto, isArray: true })
   data!: ManagedUserDataDto[];
+
+  @ApiProperty({ type: () => PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }

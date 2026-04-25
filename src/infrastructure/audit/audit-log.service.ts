@@ -1,7 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import { and, desc, eq, inArray, lt, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import type { AuditAction, AuditCategory } from '../../common/audit/audit-actions';
+import {
+  PaginationParams,
+  paginateResult,
+} from '../../common/http/pagination.dto';
+import type {
+  AuditAction,
+  AuditCategory,
+} from '../../common/audit/audit-actions';
 import type { AuditChannel } from '../../common/audit/audit-channel';
 import type { ResourceType } from '../../common/audit/resource-types';
 import { DatabaseService } from '../database/database.service';
@@ -18,7 +25,6 @@ interface ListAuditEventsFilters {
   channel?: AuditChannel;
   impersonatorActorId?: string;
   impersonatorSessionId?: string;
-  limit?: number;
   resourceId?: string;
   resourceType?: ResourceType;
   sessionId?: string;
@@ -54,13 +60,16 @@ export class AuditLogService {
   async listEvents(
     organizationId: string,
     filters: ListAuditEventsFilters = {},
+    pagination: PaginationParams,
   ) {
     let whereClause = eq(auditEvents.organizationId, organizationId);
 
     if (filters.workspaceId) {
       whereClause =
-        and(whereClause, eq(auditEvents.activeWorkspaceId, filters.workspaceId)) ??
-        whereClause;
+        and(
+          whereClause,
+          eq(auditEvents.activeWorkspaceId, filters.workspaceId),
+        ) ?? whereClause;
     }
 
     if (filters.sessionId) {
@@ -83,8 +92,7 @@ export class AuditLogService {
 
     if (filters.action) {
       whereClause =
-        and(whereClause, eq(auditEvents.action, filters.action)) ??
-        whereClause;
+        and(whereClause, eq(auditEvents.action, filters.action)) ?? whereClause;
     }
 
     if (filters.channel) {
@@ -135,16 +143,27 @@ export class AuditLogService {
         ) ?? whereClause;
     }
 
-    const events = await this.databaseService.db
-      .select()
-      .from(auditEvents)
-      .where(whereClause)
-      .orderBy(desc(auditEvents.createdAt))
-      .limit(filters.limit ?? 50);
+    const [countRows, events] = await Promise.all([
+      this.databaseService.db
+        .select({ count: sql<number>`count(*)` })
+        .from(auditEvents)
+        .where(whereClause),
+      this.databaseService.db
+        .select()
+        .from(auditEvents)
+        .where(whereClause)
+        .orderBy(desc(auditEvents.createdAt), desc(auditEvents.id))
+        .limit(pagination.pageSize)
+        .offset(pagination.offset),
+    ]);
 
     const references = await this.loadEventReferences(organizationId, events);
 
-    return events.map((event) => this.serializeEvent(event, references));
+    return paginateResult(
+      events.map((event) => this.serializeEvent(event, references)),
+      countRows[0]?.count ?? 0,
+      pagination,
+    );
   }
 
   async record(entry: AuditLogEntry): Promise<void> {
@@ -268,13 +287,13 @@ export class AuditLogService {
     references?: AuditEventReferenceMaps,
   ) {
     const actor = event.actorId
-      ? references?.usersById.get(event.actorId) ?? null
+      ? (references?.usersById.get(event.actorId) ?? null)
       : null;
     const activeWorkspace = event.activeWorkspaceId
-      ? references?.workspacesById.get(event.activeWorkspaceId) ?? null
+      ? (references?.workspacesById.get(event.activeWorkspaceId) ?? null)
       : null;
     const impersonator = event.impersonatorActorId
-      ? references?.usersById.get(event.impersonatorActorId) ?? null
+      ? (references?.usersById.get(event.impersonatorActorId) ?? null)
       : null;
 
     return {

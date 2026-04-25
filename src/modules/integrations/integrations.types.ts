@@ -1,3 +1,4 @@
+import type { PaginationParams } from '../../common/http/pagination.dto';
 import type {
   IntegrationAuthType,
   IntegrationConnectionStatus,
@@ -39,7 +40,9 @@ export interface QueueIntegrationSyncInput {
 }
 
 export interface ListSyncJobsInput {
+  jobType?: SyncJobType;
   organizationId: string;
+  pagination: PaginationParams;
   connectionId?: string;
   status?: SyncJobStatus;
 }

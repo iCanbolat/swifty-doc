@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../../common/http/pagination.dto';
 import { TEMPLATE_STATUS_VALUES } from '../templates.types';
 
 export class TemplateDataDto {
@@ -54,4 +55,7 @@ export class TemplateResponseDto {
 export class TemplateListResponseDto {
   @ApiProperty({ type: () => TemplateDataDto, isArray: true })
   data!: TemplateDataDto[];
+
+  @ApiProperty({ type: () => PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../../common/http/pagination.dto';
 import {
   WEBHOOK_SUBSCRIPTION_TYPES,
   type WebhookSubscriptionType,
@@ -40,4 +41,7 @@ export class WebhookEndpointResponseDto {
 export class WebhookEndpointListResponseDto {
   @ApiProperty({ type: () => WebhookEndpointViewDto, isArray: true })
   data!: WebhookEndpointViewDto[];
+
+  @ApiProperty({ type: () => PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }

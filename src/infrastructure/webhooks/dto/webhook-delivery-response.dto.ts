@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../../common/http/pagination.dto';
 import { WEBHOOK_DELIVERY_STATUS_VALUES } from '../../../common/webhooks/webhook-delivery-types';
 
 export class WebhookDeliveryViewDto {
@@ -79,4 +80,7 @@ export class WebhookDeliveryResponseDto {
 export class WebhookDeliveryListResponseDto {
   @ApiProperty({ type: () => WebhookDeliveryViewDto, isArray: true })
   data!: WebhookDeliveryViewDto[];
+
+  @ApiProperty({ type: () => PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }

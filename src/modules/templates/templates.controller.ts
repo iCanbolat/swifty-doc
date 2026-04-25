@@ -19,6 +19,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { resolvePagination } from '../../common/http/pagination.dto';
 import { CurrentActor } from '../auth/current-actor.decorator';
 import type { AuthenticatedInternalActor } from '../auth/auth.types';
 import { InternalAuthGuard } from '../auth/internal-auth.guard';
@@ -59,13 +60,19 @@ export class TemplatesController {
     @CurrentActor() actor: AuthenticatedInternalActor,
     @Query() query: ListTemplatesQueryDto,
   ) {
-    const items = await this.templatesService.listTemplates(
-      actor.organization.id,
-      query.workspaceId,
-    );
+    const result = await this.templatesService.listTemplates({
+      organizationId: actor.organization.id,
+      pagination: resolvePagination(query),
+      search: query.search,
+      status: query.status,
+      workspaceId: query.workspaceId,
+    });
 
     return {
-      data: items.map((item) => this.templatesService.serializeTemplate(item)),
+      data: result.data.map((item) =>
+        this.templatesService.serializeTemplate(item),
+      ),
+      meta: result.meta,
     };
   }
 

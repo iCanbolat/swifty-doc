@@ -5,8 +5,12 @@ import {
   OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import {
+  PaginatedResult,
+  paginateResult,
+} from '../../common/http/pagination.dto';
 import { AUDIT_ACTIONS } from '../../common/audit/audit-actions';
 import {
   INTEGRATION_AUTH_TYPE_VALUES,
@@ -329,7 +333,9 @@ export class IntegrationsService implements OnModuleInit {
     };
   }
 
-  async listSyncJobs(input: ListSyncJobsInput): Promise<SyncJobRecord[]> {
+  async listSyncJobs(
+    input: ListSyncJobsInput,
+  ): Promise<PaginatedResult<SyncJobRecord>> {
     const db = this.getDatabase();
     const conditions = [eq(syncJobs.organizationId, input.organizationId)];
 
@@ -341,12 +347,25 @@ export class IntegrationsService implements OnModuleInit {
       conditions.push(eq(syncJobs.status, input.status));
     }
 
-    return db
-      .select()
-      .from(syncJobs)
-      .where(and(...conditions))
-      .orderBy(desc(syncJobs.queuedAt))
-      .limit(50);
+    if (input.jobType) {
+      conditions.push(eq(syncJobs.jobType, input.jobType));
+    }
+
+    const [countRows, jobs] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(syncJobs)
+        .where(and(...conditions)),
+      db
+        .select()
+        .from(syncJobs)
+        .where(and(...conditions))
+        .orderBy(desc(syncJobs.queuedAt), desc(syncJobs.id))
+        .limit(input.pagination.pageSize)
+        .offset(input.pagination.offset),
+    ]);
+
+    return paginateResult(jobs, countRows[0]?.count ?? 0, input.pagination);
   }
 
   async getConnectionDebugSnapshot(

@@ -18,6 +18,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { resolvePagination } from '../../common/http/pagination.dto';
 import { CurrentActor } from '../auth/current-actor.decorator';
 import type { AuthenticatedInternalActor } from '../auth/auth.types';
 import { InternalAuthGuard } from '../auth/internal-auth.guard';
@@ -217,14 +218,12 @@ export class SyncJobsController {
     @CurrentActor() actor: AuthenticatedInternalActor,
     @Query() query: ListSyncJobsQueryDto,
   ) {
-    const jobs = await this.integrationsService.listSyncJobs({
+    return this.integrationsService.listSyncJobs({
+      jobType: query.jobType,
       organizationId: actor.organization.id,
+      pagination: resolvePagination(query),
       connectionId: query.connectionId,
       status: query.status,
     });
-
-    return {
-      data: jobs,
-    };
   }
 }

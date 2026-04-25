@@ -1,8 +1,22 @@
+import type { PaginationParams } from '../../common/http/pagination.dto';
 import type {
   WebhookEventType,
   WebhookSubscriptionType,
 } from '../../common/webhooks/webhook-events';
 import type { WebhookDeliveryStatus } from '../../common/webhooks/webhook-delivery-types';
+
+export interface ListWebhookEndpointsInput {
+  organizationId: string;
+  pagination: PaginationParams;
+  search?: string;
+}
+
+export interface ListWebhookDeliveriesInput {
+  organizationId: string;
+  pagination: PaginationParams;
+  endpointId?: string;
+  status?: WebhookDeliveryStatus;
+}
 
 export interface WebhookEndpointRecord {
   id: string;

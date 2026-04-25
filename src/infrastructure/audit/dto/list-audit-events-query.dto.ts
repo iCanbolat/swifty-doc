@@ -11,6 +11,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { PaginationQueryDto } from '../../../common/http/pagination.dto';
 import {
   AUDIT_ACTIONS,
   type AuditAction,
@@ -34,7 +35,7 @@ const AUDIT_ACTION_VALUES = Object.values(AUDIT_ACTIONS).flatMap((group) =>
   Object.values(group),
 ) as AuditAction[];
 
-export class ListAuditEventsQueryDto {
+export class ListAuditEventsQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     enum: AUDIT_CATEGORY_VALUES,
     enumName: 'AuditCategory',
@@ -140,7 +141,13 @@ export class ListAuditEventsQueryDto {
   @IsDateString()
   beforeCreatedAt?: string;
 
-  @ApiPropertyOptional({ example: 50, minimum: 1, maximum: 100, default: 50 })
+  @ApiPropertyOptional({
+    example: 50,
+    minimum: 1,
+    maximum: 100,
+    default: 50,
+    description: 'Legacy alias for pageSize.',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

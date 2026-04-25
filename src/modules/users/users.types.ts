@@ -1,3 +1,4 @@
+import type { PaginationParams } from '../../common/http/pagination.dto';
 import type { InternalRoleName } from '../auth/internal-role.types';
 
 export const MANAGED_USER_STATUS_VALUES = [
@@ -31,6 +32,14 @@ export interface CreateManagedUserInput {
   organizationId: string;
   phone?: string;
   memberships: UserWorkspaceAssignmentInput[];
+}
+
+export interface ListManagedUsersInput {
+  organizationId: string;
+  pagination: PaginationParams;
+  search?: string;
+  status?: ManagedUserStatus;
+  workspaceId?: string;
 }
 
 export interface UpdateManagedUserInput {

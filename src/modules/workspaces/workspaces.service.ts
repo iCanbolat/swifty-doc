@@ -4,8 +4,12 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, ilike, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
+import {
+  PaginatedResult,
+  paginateResult,
+} from '../../common/http/pagination.dto';
 import { AUDIT_ACTIONS } from '../../common/audit/audit-actions';
 import { RESOURCE_TYPES } from '../../common/audit/resource-types';
 import { AuditLogService } from '../../infrastructure/audit/audit-log.service';
@@ -13,6 +17,7 @@ import { DatabaseService } from '../../infrastructure/database/database.service'
 import { workspaces } from '../../infrastructure/database/schema';
 import type {
   CreateWorkspaceInput,
+  ListWorkspacesInput,
   UpdateWorkspaceInput,
   WorkspaceView,
 } from './workspaces.types';
@@ -24,15 +29,49 @@ export class WorkspacesService {
     private readonly databaseService: DatabaseService,
   ) {}
 
-  async listWorkspaces(organizationId: string): Promise<WorkspaceView[]> {
+  async listWorkspaces(
+    input: ListWorkspacesInput,
+  ): Promise<PaginatedResult<WorkspaceView>> {
     const db = this.getDatabase();
-    const items = await db
-      .select()
-      .from(workspaces)
-      .where(eq(workspaces.organizationId, organizationId))
-      .orderBy(asc(workspaces.name));
+    const conditions = [eq(workspaces.organizationId, input.organizationId)];
 
-    return items.map((item) => this.serializeWorkspace(item));
+    if (input.status) {
+      conditions.push(eq(workspaces.status, input.status));
+    }
+
+    const search = this.normalizeOptionalString(input.search);
+
+    if (search) {
+      const pattern = `%${search}%`;
+      const searchCondition = or(
+        ilike(workspaces.name, pattern),
+        ilike(workspaces.code, pattern),
+      );
+
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+
+    const [countRows, items] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(workspaces)
+        .where(and(...conditions)),
+      db
+        .select()
+        .from(workspaces)
+        .where(and(...conditions))
+        .orderBy(asc(workspaces.name), asc(workspaces.id))
+        .limit(input.pagination.pageSize)
+        .offset(input.pagination.offset),
+    ]);
+
+    return paginateResult(
+      items.map((item) => this.serializeWorkspace(item)),
+      countRows[0]?.count ?? 0,
+      input.pagination,
+    );
   }
 
   async getWorkspace(
@@ -163,6 +202,11 @@ export class WorkspacesService {
       status: workspace.status,
       createdAt: workspace.createdAt.toISOString(),
     };
+  }
+
+  private normalizeOptionalString(value?: string): string | undefined {
+    const normalized = value?.trim();
+    return normalized ? normalized : undefined;
   }
 
   private normalizeCode(value: string): string {

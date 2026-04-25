@@ -4,8 +4,12 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { desc, eq, and } from 'drizzle-orm';
+import { and, desc, eq, ilike, or, sql } from 'drizzle-orm';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import {
+  PaginatedResult,
+  paginateResult,
+} from '../../common/http/pagination.dto';
 import { AUDIT_ACTIONS } from '../../common/audit/audit-actions';
 import { RESOURCE_TYPES } from '../../common/audit/resource-types';
 import { AuditLogService } from '../../infrastructure/audit/audit-log.service';
@@ -13,6 +17,7 @@ import { DatabaseService } from '../../infrastructure/database/database.service'
 import { oauthApplications } from '../../infrastructure/database/schema';
 import type {
   CreateOAuthApplicationInput,
+  ListOAuthApplicationsInput,
   OAuthApplicationCredentialResult,
   OAuthApplicationRecord,
   OAuthApplicationStatus,
@@ -28,15 +33,53 @@ export class ApplicationsService {
   ) {}
 
   async listApplications(
-    organizationId: string,
-  ): Promise<OAuthApplicationRecord[]> {
+    input: ListOAuthApplicationsInput,
+  ): Promise<PaginatedResult<OAuthApplicationRecord>> {
     const db = this.getDatabase();
+    const conditions = [
+      eq(oauthApplications.organizationId, input.organizationId),
+    ];
 
-    return db
-      .select()
-      .from(oauthApplications)
-      .where(eq(oauthApplications.organizationId, organizationId))
-      .orderBy(desc(oauthApplications.createdAt));
+    if (input.status) {
+      conditions.push(eq(oauthApplications.status, input.status));
+    }
+
+    if (input.applicationType) {
+      conditions.push(
+        eq(oauthApplications.applicationType, input.applicationType),
+      );
+    }
+
+    const search = this.normalizeOptionalString(input.search);
+
+    if (search) {
+      const pattern = `%${search}%`;
+      const searchCondition = or(
+        ilike(oauthApplications.name, pattern),
+        ilike(oauthApplications.description, pattern),
+        ilike(oauthApplications.clientId, pattern),
+      );
+
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
+    }
+
+    const [countRows, items] = await Promise.all([
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(oauthApplications)
+        .where(and(...conditions)),
+      db
+        .select()
+        .from(oauthApplications)
+        .where(and(...conditions))
+        .orderBy(desc(oauthApplications.createdAt), desc(oauthApplications.id))
+        .limit(input.pagination.pageSize)
+        .offset(input.pagination.offset),
+    ]);
+
+    return paginateResult(items, countRows[0]?.count ?? 0, input.pagination);
   }
 
   async getApplication(

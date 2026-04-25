@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../../common/http/pagination.dto';
 import { WORKSPACE_STATUS_VALUES } from '../workspaces.types';
 
 export class WorkspaceDataDto {
@@ -33,4 +34,7 @@ export class WorkspaceResponseDto {
 export class WorkspaceListResponseDto {
   @ApiProperty({ type: () => WorkspaceDataDto, isArray: true })
   data!: WorkspaceDataDto[];
+
+  @ApiProperty({ type: () => PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }

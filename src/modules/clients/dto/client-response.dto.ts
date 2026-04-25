@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationMetaDto } from '../../../common/http/pagination.dto';
 import { CLIENT_STATUS_VALUES } from '../clients.types';
 
 export class ClientDataDto {
@@ -54,4 +55,7 @@ export class ClientResponseDto {
 export class ClientListResponseDto {
   @ApiProperty({ type: () => ClientDataDto, isArray: true })
   data!: ClientDataDto[];
+
+  @ApiProperty({ type: () => PaginationMetaDto })
+  meta!: PaginationMetaDto;
 }

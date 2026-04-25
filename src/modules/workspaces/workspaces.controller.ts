@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -18,12 +19,14 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { resolvePagination } from '../../common/http/pagination.dto';
 import { CurrentActor } from '../auth/current-actor.decorator';
 import type { AuthenticatedInternalActor } from '../auth/auth.types';
 import { InternalAuthGuard } from '../auth/internal-auth.guard';
 import { OrganizationPermissions } from '../auth/organization-policy.decorator';
 import { OrganizationPolicyGuard } from '../auth/organization-policy.guard';
 import { CreateWorkspaceDto } from './dto/create-workspace.dto';
+import { ListWorkspacesQueryDto } from './dto/list-workspaces-query.dto';
 import {
   WorkspaceListResponseDto,
   WorkspaceResponseDto,
@@ -44,12 +47,19 @@ export class WorkspacesController {
 
   @ApiOperation({ summary: 'List workspaces for the current organization.' })
   @ApiOkResponse({ type: WorkspaceListResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
   @OrganizationPermissions('workspaces.read')
   @Get()
-  async listWorkspaces(@CurrentActor() actor: AuthenticatedInternalActor) {
-    return {
-      data: await this.workspacesService.listWorkspaces(actor.organization.id),
-    };
+  async listWorkspaces(
+    @CurrentActor() actor: AuthenticatedInternalActor,
+    @Query() query: ListWorkspacesQueryDto,
+  ) {
+    return this.workspacesService.listWorkspaces({
+      organizationId: actor.organization.id,
+      pagination: resolvePagination(query),
+      search: query.search,
+      status: query.status,
+    });
   }
 
   @ApiOperation({ summary: 'Create a workspace for the current organization.' })

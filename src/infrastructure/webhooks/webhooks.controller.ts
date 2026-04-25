@@ -18,6 +18,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { resolvePagination } from '../../common/http/pagination.dto';
 import { CurrentActor } from '../../modules/auth/current-actor.decorator';
 import type { AuthenticatedInternalActor } from '../../modules/auth/auth.types';
 import { InternalAuthGuard } from '../../modules/auth/internal-auth.guard';
@@ -59,14 +60,17 @@ export class WebhooksController {
     @CurrentActor() actor: AuthenticatedInternalActor,
     @Query() query: GetWebhookEndpointsQueryDto,
   ) {
-    const endpoints = await this.webhookService.listEndpoints(
-      actor.organization.id,
-    );
+    const result = await this.webhookService.listEndpoints({
+      organizationId: actor.organization.id,
+      pagination: resolvePagination(query),
+      search: query.search,
+    });
 
     return {
-      data: endpoints.map((endpoint) =>
+      data: result.data.map((endpoint) =>
         this.webhookService.sanitizeEndpoint(endpoint),
       ),
+      meta: result.meta,
     };
   }
 
@@ -140,16 +144,18 @@ export class WebhookDeliveriesController {
     @CurrentActor() actor: AuthenticatedInternalActor,
     @Query() query: ListWebhookDeliveriesQueryDto,
   ) {
-    const deliveries = await this.webhookService.listDeliveries({
+    const result = await this.webhookService.listDeliveries({
       organizationId: actor.organization.id,
+      pagination: resolvePagination(query),
       endpointId: query.endpointId,
       status: query.status,
     });
 
     return {
-      data: deliveries.map((delivery) =>
+      data: result.data.map((delivery) =>
         this.webhookService.serializeDelivery(delivery),
       ),
+      meta: result.meta,
     };
   }
 
