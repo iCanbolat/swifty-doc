@@ -99,7 +99,7 @@ export class ExportJobResponseDataDto {
 
   @ApiPropertyOptional({
     example:
-      'http://localhost:3000/v1/files/download?key=org_123%2Fexports%2F2026-04-22%2Fexport_job_123.zip',
+      'http://localhost:8080/v1/files/download?key=org_123%2Fexports%2F2026-04-22%2Fexport_job_123.zip',
     nullable: true,
   })
   downloadUrl!: string | null;

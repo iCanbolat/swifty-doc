@@ -47,7 +47,7 @@ export class CreatePortalLinkResponseDataDto {
 
   @ApiProperty({
     example:
-      'http://localhost:3000/v1/portal/access?requestId=req_123&token=49b977787e6a203c...',
+      'http://localhost:8080/v1/portal/access?requestId=req_123&token=49b977787e6a203c...',
   })
   accessUrl!: string;
 }

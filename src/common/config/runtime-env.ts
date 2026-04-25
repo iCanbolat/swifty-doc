@@ -29,7 +29,7 @@ export const runtimeEnvSchema = z
     NODE_ENV: z
       .enum(['development', 'test', 'production'])
       .default('development'),
-    PORT: numberFromEnv.default(3000),
+    PORT: numberFromEnv.default(8080),
     DATABASE_URL: z.string().min(1).optional(),
     DATABASE_POOL_MAX: numberFromEnv.default(10),
     DATABASE_SSL: booleanFromEnv.default(false),
