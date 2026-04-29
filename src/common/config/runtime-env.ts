@@ -45,7 +45,7 @@ export const runtimeEnvSchema = z
       .min(1)
       .default('swd_refresh_token'),
     INTERNAL_AUTH_REFRESH_COOKIE_PATH: z.string().min(1).default('/v1/auth'),
-    INTERNAL_AUTH_REFRESH_COOKIE_DOMAIN: z.string().min(1).optional(),
+    INTERNAL_AUTH_REFRESH_COOKIE_DOMAIN: z.string().optional(),
     INTERNAL_AUTH_REFRESH_COOKIE_SAME_SITE: z
       .enum(['strict', 'lax', 'none'])
       .default('strict'),
