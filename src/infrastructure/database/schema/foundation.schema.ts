@@ -313,6 +313,7 @@ export const users = pgTable(
     fullName: varchar('full_name', { length: 160 }).notNull(),
     locale: varchar('locale', { length: 16 }).notNull().default('en'),
     phone: varchar('phone', { length: 32 }),
+    avatarUrl: text('avatar_url'),
     status: userStatusEnum('status').notNull().default('invited'),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true })

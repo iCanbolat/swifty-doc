@@ -6,6 +6,7 @@ import {
   Headers,
   HttpCode,
   Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -52,9 +53,11 @@ import {
   PasswordResetCompletedResponseDto,
   PasswordResetRequestedResponseDto,
   SignOutResponseDto,
+  UpdateProfileResponseDto,
 } from './dto/auth-response.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SignInDto } from './dto/sign-in.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
 import {
   GoogleAuthCallbackQueryDto,
@@ -264,6 +267,52 @@ export class AuthController {
         actorUserId: actor.user.id,
         userId: actor.user.id,
       }),
+    };
+  }
+
+  @ApiOperation({
+    summary:
+      'Update the authenticated user profile (full name, phone, avatar).',
+  })
+  @ApiBearerAuth('bearer')
+  @ApiOkResponse({ type: UpdateProfileResponseDto })
+  @ApiBadRequestResponse({ description: 'DTO validation failed.' })
+  @ApiUnauthorizedResponse({
+    description: 'Bearer token is missing or invalid.',
+  })
+  @UseGuards(InternalAuthGuard)
+  @HttpCode(200)
+  @Patch('me')
+  async updateProfile(
+    @CurrentActor() actor: AuthenticatedInternalActor,
+    @Body() body: UpdateProfileDto,
+  ) {
+    return {
+      data: {
+        user: await this.authService.updateCurrentUserProfile(actor.user.id, {
+          avatarUrl: body.avatarUrl,
+          fullName: body.fullName,
+          phone: body.phone,
+        }),
+      },
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Return the list of auth providers linked to the current user.',
+  })
+  @ApiBearerAuth('bearer')
+  @ApiOkResponse({ description: 'List of linked provider keys.' })
+  @ApiUnauthorizedResponse({
+    description: 'Bearer token is missing or invalid.',
+  })
+  @UseGuards(InternalAuthGuard)
+  @Get('me/linked-accounts')
+  async getLinkedAccounts(@CurrentActor() actor: AuthenticatedInternalActor) {
+    return {
+      data: {
+        providers: await this.authService.getLinkedProviders(actor.user.id),
+      },
     };
   }
 

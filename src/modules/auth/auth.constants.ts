@@ -28,5 +28,6 @@ export const MAX_LENGTH_ORGANIZATION_SLUG = 64;
 export const MAX_LENGTH_WORKSPACE_NAME = 160;
 export const MAX_LENGTH_LOCALE = 16;
 export const MAX_LENGTH_PHONE = 32;
+export const MAX_LENGTH_AVATAR_URL = 3_000_000;
 export const MAX_LENGTH_REGION = 32;
 export const MAX_LENGTH_TIMEZONE = 64;

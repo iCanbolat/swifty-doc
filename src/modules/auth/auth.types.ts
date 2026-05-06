@@ -29,6 +29,7 @@ export interface AuthenticatedSession {
 }
 
 export interface AuthenticatedUser {
+  avatarUrl: string | null;
   createdAt: string;
   email: string;
   emailVerifiedAt: string | null;

@@ -7,6 +7,12 @@ export class AuthenticatedUserDto {
   @ApiProperty({ example: 'owner@acme.test' })
   email!: string;
 
+  @ApiProperty({
+    example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...',
+    nullable: true,
+  })
+  avatarUrl!: string | null;
+
   @ApiProperty({ example: '2026-04-23T10:00:00.000Z', nullable: true })
   emailVerifiedAt!: string | null;
 
@@ -141,6 +147,16 @@ export class CurrentActorResponseDataDto {
 export class CurrentActorResponseDto {
   @ApiProperty({ type: () => CurrentActorResponseDataDto })
   data!: CurrentActorResponseDataDto;
+}
+
+export class UpdateProfileResponseDataDto {
+  @ApiProperty({ type: () => AuthenticatedUserDto })
+  user!: AuthenticatedUserDto;
+}
+
+export class UpdateProfileResponseDto {
+  @ApiProperty({ type: () => UpdateProfileResponseDataDto })
+  data!: UpdateProfileResponseDataDto;
 }
 
 export class OrganizationEntitlementLimitsDto {

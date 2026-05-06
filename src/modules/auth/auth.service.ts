@@ -1967,6 +1967,7 @@ export class AuthService {
         id: sessionRecord.session.id,
       },
       user: {
+        avatarUrl: sessionRecord.user.avatarUrl,
         createdAt: sessionRecord.user.createdAt.toISOString(),
         email: sessionRecord.user.email,
         emailVerifiedAt:
@@ -2569,6 +2570,63 @@ export class AuthService {
 
   private addDays(source: Date, days: number): Date {
     return new Date(source.getTime() + days * 24 * 60 * 60_000);
+  }
+
+  async updateCurrentUserProfile(
+    userId: string,
+    input: {
+      avatarUrl?: string | null;
+      fullName: string;
+      phone?: string | null;
+    },
+  ) {
+    const db = this.getDatabase();
+    const now = new Date();
+
+    await db
+      .update(users)
+      .set({
+        avatarUrl: input.avatarUrl ?? null,
+        fullName: input.fullName.trim(),
+        phone: input.phone ?? null,
+      })
+      .where(eq(users.id, userId));
+
+    const emailVerificationState =
+      await this.getUserEmailVerificationState(userId);
+
+    const [updated] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!updated) {
+      throw new NotFoundException('User not found.');
+    }
+
+    return {
+      avatarUrl: updated.avatarUrl,
+      id: updated.id,
+      email: updated.email,
+      fullName: updated.fullName,
+      phone: updated.phone ?? null,
+      locale: updated.locale,
+      status: updated.status,
+      emailVerifiedAt:
+        emailVerificationState.emailVerifiedAt?.toISOString() ?? null,
+      lastLoginAt: updated.lastLoginAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+    };
+  }
+
+  async getLinkedProviders(userId: string): Promise<string[]> {
+    const db = this.getDatabase();
+    const identities = await db
+      .select({ provider: authIdentities.provider })
+      .from(authIdentities)
+      .where(eq(authIdentities.userId, userId));
+    return identities.map((i) => i.provider);
   }
 
   private getDatabase() {
